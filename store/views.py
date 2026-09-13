@@ -290,8 +290,23 @@ def product_detail(request, slug):
     can_review = False
     review_avg = 0
     reviews = product.reviews.all()
+    distribution = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
     if reviews:
         review_avg = sum(r.rating for r in reviews) / len(reviews)
+        for r in reviews:
+            if r.rating in distribution:
+                distribution[r.rating] += 1
+    # Verified purchase badge: user ids who bought this product recently
+    reviewer_ids = list(reviews.values_list('user_id', flat=True))
+    verified_user_ids = set()
+    if reviewer_ids:
+        verified_user_ids = set(
+            OrderItem.objects.filter(
+                product=product,
+                order__user_id__in=reviewer_ids,
+                order__status__in=['pending', 'processing', 'completed'],
+            ).values_list('order__user_id', flat=True).distinct()
+        )
     if request.user.is_authenticated:
         has_purchased = Order.objects.filter(
             user=request.user,
@@ -308,6 +323,9 @@ def product_detail(request, slug):
         'related_products': related_products,
         'can_review': can_review,
         'review_avg': review_avg,
+        'distribution': distribution,
+        'distribution_items': [(s, distribution[s]) for s in (5, 4, 3, 2, 1)],
+        'verified_user_ids': verified_user_ids,
         'reviews': reviews,
         'qa_list': product.qa_pairs.select_related('user', 'answered_by').all(),
     })

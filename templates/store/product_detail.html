@@ -205,126 +205,164 @@
           </div>
 
           <!-- Product Tabs -->
-          <div class="product-tabs" style="margin-top:30px; background:#fff; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,0.08); overflow:hidden;">
-            <ul class="nav home-nav-tabs" role="tablist" style="background:#f8f9fa; padding:0 15px; margin:0; border-bottom:2px solid #e74847;">
-              <li class="active"><a href="#tab-description" data-toggle="tab" style="border-bottom:3px solid #e74847; margin-bottom:-2px;"><i class="fa fa-info-circle"></i> Description</a></li>
+          <div class="product-tabs pd-tabs-wrap" style="margin-top:30px; background:#fff; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,0.08); overflow:hidden;">
+            <ul class="nav home-nav-tabs pd-tabs" role="tablist">
+              <li class="active"><a href="#tab-description" data-toggle="tab"><i class="fa fa-info-circle"></i> Description</a></li>
               {% if product.video_url %}<li><a href="#tab-video" data-toggle="tab"><i class="fa fa-play-circle"></i> Video</a></li>{% endif %}
-              <li><a href="#tab-qa" data-toggle="tab"><i class="fa fa-comments"></i> Q&A ({{ qa_list|length }})</a></li>
-              <li><a href="#tab-reviews" data-toggle="tab"><i class="fa fa-star"></i> Reviews ({{ reviews|length }})</a></li>
-              <li><a href="#tab-shipping" data-toggle="tab"><i class="fa fa-truck"></i> Shipping & Returns</a></li>
+              <li><a href="#tab-qa" data-toggle="tab"><i class="fa fa-comments"></i> Q&amp;A <span class="pd-count">{{ qa_list|length }}</span></a></li>
+              <li><a href="#tab-reviews" data-toggle="tab"><i class="fa fa-star"></i> Reviews <span class="pd-count">{{ reviews|length }}</span></a></li>
+              <li><a href="#tab-shipping" data-toggle="tab"><i class="fa fa-truck"></i> Shipping &amp; Returns</a></li>
             </ul>
-            <div class="tab-content" style="padding:25px;">
+            <div class="tab-content pd-tab-content">
               <div id="tab-description" class="tab-pane active">
-                <div style="line-height:1.9; color:#555; font-size:15px;">{{ product.description|safe }}</div>
+                <div class="pd-description">{{ product.description|safe }}</div>
               </div>
               {% if product.video_embed_url %}
               <div id="tab-video" class="tab-pane">
-                <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; max-width:800px; border-radius:8px;">
-                  <iframe src="{{ product.video_embed_url }}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; border-radius:8px;" allowfullscreen loading="lazy"></iframe>
+                <div class="pd-video-wrap">
+                  <iframe src="{{ product.video_embed_url }}" allowfullscreen loading="lazy"></iframe>
                 </div>
               </div>
               {% endif %}
               <div id="tab-qa" class="tab-pane">
                 {% if qa_list %}
                 {% for qa in qa_list %}
-                <div style="border-bottom:1px solid #f0f0f0; padding:15px 0;">
-                  <strong style="color:#333;"><i class="fa fa-question-circle" style="color:#e74847;"></i> {{ qa.question }}</strong>
-                  <span style="font-size:11px; color:#999; margin-left:8px;">by {{ qa.user.username|default:'Anonymous' }} &middot; {{ qa.created|date:"M d, Y" }}</span>
+                <div class="pd-qa-card">
+                  <div class="pd-q">
+                    <span class="pd-q-icon"><i class="fa fa-question-circle"></i></span>
+                    <div>
+                      <div class="pd-q-text">{{ qa.question }}</div>
+                      <div class="pd-q-meta">by {{ qa.user.username|default:'Anonymous' }} &middot; {{ qa.created|date:"M d, Y" }}</div>
+                    </div>
+                  </div>
                   {% if qa.answer %}
-                  <div style="padding:12px 16px; background:#f0faf0; border-radius:8px; margin-top:10px; border-left:4px solid #28a745;">
-                    <div style="font-size:12px; color:#28a745; font-weight:600; margin-bottom:4px;"><i class="fa fa-check-circle"></i> Answer</div>
-                    <p style="margin:0; color:#555;">{{ qa.answer }}</p>
-                    <div style="font-size:11px; color:#999; margin-top:4px;">— {{ qa.answered_by.username|default:'Seller' }} &middot; {{ qa.answered_at|date:"M d, Y" }}</div>
+                  <div class="pd-a">
+                    <span class="pd-a-badge"><i class="fa fa-check-circle"></i> Seller Reply</span>
+                    <div class="pd-a-text">{{ qa.answer }}</div>
+                    <div class="pd-a-meta">&mdash; {{ qa.answered_by.username|default:'Seller' }} &middot; {{ qa.answered_at|date:"M d, Y" }}</div>
                   </div>
                   {% else %}
-                  <p style="margin-top:5px; font-size:13px; color:#aaa;"><em>Awaiting answer</em></p>
+                  <div class="pd-a-pending"><span class="pd-pill">Awaiting answer</span></div>
                   {% endif %}
                 </div>
                 {% endfor %}
                 {% else %}
-                <p style="color:#888; text-align:center; padding:20px 0;"><i class="fa fa-comments" style="font-size:30px; color:#ddd;"></i><br>No questions yet. Be the first to ask!</p>
+                <div class="pd-empty">
+                  <i class="fa fa-comments"></i>
+                  <p>No questions yet. Be the first to ask!</p>
+                </div>
                 {% endif %}
                 {% if user.is_authenticated %}
-                <div style="margin-top:20px; padding:15px; border:1px solid #eee; border-radius:8px; background:#fafafa;">
-                  <h4 style="margin-bottom:10px;"><i class="fa fa-question-circle" style="color:#8a2be2;"></i> Ask a Question</h4>
+                <div class="pd-form-card">
+                  <h4><i class="fa fa-question-circle pd-fc-ico"></i> Ask a Question</h4>
                   <form method="POST" action="{% url 'product_ask_question' product.id %}">
                     {% csrf_token %}
-                    <textarea name="question" rows="3" class="form-control" placeholder="Have a question about this product?" required style="resize:vertical; border-radius:6px;"></textarea>
-                    <button type="submit" style="margin-top:10px; padding:8px 20px; background:#e74847; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600;"><i class="fa fa-send"></i> Submit</button>
+                    <textarea name="question" rows="3" class="form-control pd-textarea" placeholder="Have a question about this product?" required></textarea>
+                    <button type="submit" class="pd-btn-submit"><i class="fa fa-send"></i> Submit</button>
                   </form>
                 </div>
                 {% else %}
-                <p style="margin-top:15px; text-align:center; padding:10px; background:#f8f9fa; border-radius:6px;"><a href="{% url 'login' %}?next={{ request.path }}" style="color:#e74847; font-weight:600;">Login</a> to ask a question.</p>
+                <p class="pd-login-hint"><a href="{% url 'login' %}?next={{ request.path }}">Login</a> to ask a question.</p>
                 {% endif %}
               </div>
               <div id="tab-reviews" class="tab-pane">
+                <div class="pd-review-summary">
+                  <div class="pd-rs-left">
+                    <div class="pd-rs-score">{{ review_avg|floatformat:1 }}</div>
+                    <div class="pd-rs-stars">
+                      {% for i in "12345"|make_list %}{% if review_avg >= forloop.counter %}<i class="fa fa-star"></i>{% else %}<i class="fa fa-star-o"></i>{% endif %}{% endfor %}
+                    </div>
+                    <div class="pd-rs-count">{{ reviews|length }} Review{% if reviews|length != 1 %}s{% endif %}</div>
+                  </div>
+                  <div class="pd-rs-bars">
+                    {% for level, count in distribution_items %}
+                    <div class="pd-bar-row">
+                      <span class="pd-bar-label">{{ level }} <i class="fa fa-star"></i></span>
+                      <div class="pd-bar-track"><div class="pd-bar-fill" style="width:{% widthratio count reviews|length|default:1 100 %}%"></div></div>
+                      <span class="pd-bar-pct">{% widthratio count reviews|length|default:1 100 %}%</span>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+
                 {% if reviews %}
                 {% for review in reviews %}
-                <div style="border-bottom:1px solid #f0f0f0; padding:15px 0;">
-                  <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                    <div>
-                      <strong>{{ review.user.username }}</strong>
-                      <span style="color:#f39c12; margin-left:10px;">
-                        {% for i in '12345'|make_list %}{% if forloop.counter <= review.rating %}<i class="fa fa-star"></i>{% else %}<i class="fa fa-star-o"></i>{% endif %}{% endfor %}
+                <div class="pd-review-card">
+                  <span class="pd-avatar">{{ review.user.username|first|upper }}</span>
+                  <div class="pd-review-body">
+                    <div class="pd-review-head">
+                      <span class="pd-reviewer">{{ review.user.username }}</span>
+                      {% if review.user_id in verified_user_ids %}<span class="pd-verified"><i class="fa fa-check-circle"></i> Verified Purchase</span>{% endif %}
+                      <span class="pd-review-stars">
+                        {% for i in "12345"|make_list %}{% if forloop.counter <= review.rating %}<i class="fa fa-star"></i>{% else %}<i class="fa fa-star-o"></i>{% endif %}{% endfor %}
                       </span>
                     </div>
-                    <span style="color:#999; font-size:12px;">{{ review.created|date:"M d, Y" }}</span>
+                    <div class="pd-review-date">{{ review.created|date:"M d, Y" }}</div>
+                    <p class="pd-review-comment">{{ review.comment }}</p>
+                    {% if review.image %}<img src="{{ review.image.url }}" alt="" class="pd-review-img">{% endif %}
                   </div>
-                  <p style="color:#555; margin:0;">{{ review.comment }}</p>
-                  {% if review.image %}<img src="{{ review.image.url }}" alt="" style="max-width:200px; border-radius:8px; margin-top:8px;">{% endif %}
                 </div>
                 {% endfor %}
                 {% else %}
-                <p style="color:#888; text-align:center; padding:20px 0;"><i class="fa fa-star-o" style="font-size:30px; color:#ddd;"></i><br>No reviews yet. Be the first to review!</p>
+                <div class="pd-empty">
+                  <i class="fa fa-star-o"></i>
+                  <p>No reviews yet. Be the first to review!</p>
+                </div>
                 {% endif %}
                 {% if user.is_authenticated and can_review %}
-                <div style="border:1px solid #eee; padding:20px; border-radius:8px; margin-top:20px; background:#fafafa;">
-                  <h4><i class="fa fa-pencil" style="color:#8a2be2;"></i> Write a Review</h4>
+                <div class="pd-form-card">
+                  <h4><i class="fa fa-pencil pd-fc-ico"></i> Write a Review</h4>
                   <form method="POST" action="{% url 'add_review' product.id %}" enctype="multipart/form-data">
                     {% csrf_token %}
-                    <div style="margin:10px 0;">
-                      <label>Rating:</label>
-                      <select name="rating" class="form-control" style="width:120px; display:inline-block; margin-left:10px; border-radius:6px;">
-                        <option value="5">5 Star</option><option value="4">4 Star</option><option value="3">3 Star</option><option value="2">2 Star</option><option value="1">1 Star</option>
-                      </select>
+                    <div class="pd-star-picker">
+                      <span class="pd-sp-label">Your rating:</span>
+                      <div class="star-rating">
+                        <input type="radio" name="rating" value="5" id="st5" checked><label for="st5"><i class="fa fa-star"></i></label>
+                        <input type="radio" name="rating" value="4" id="st4"><label for="st4"><i class="fa fa-star"></i></label>
+                        <input type="radio" name="rating" value="3" id="st3"><label for="st3"><i class="fa fa-star"></i></label>
+                        <input type="radio" name="rating" value="2" id="st2"><label for="st2"><i class="fa fa-star"></i></label>
+                        <input type="radio" name="rating" value="1" id="st1"><label for="st1"><i class="fa fa-star"></i></label>
+                      </div>
                     </div>
-                    <textarea name="comment" rows="4" class="form-control" placeholder="Your review..." required style="margin:10px 0; border-radius:6px;"></textarea>
-                    <input type="file" name="image" accept="image/*" style="margin:10px 0; font-size:13px;">
-                    <button type="submit" style="padding:8px 20px; background:#e74847; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Submit Review</button>
+                    <textarea name="comment" rows="4" class="form-control pd-textarea" placeholder="Share your experience with this product..." required></textarea>
+                    <label class="pd-upload-btn"><i class="fa fa-camera"></i> Add photo <input type="file" name="image" accept="image/*" hidden></label>
+                    <button type="submit" class="pd-btn-submit">Submit Review</button>
                   </form>
                 </div>
                 {% elif not user.is_authenticated %}
-                <p style="margin-top:15px; text-align:center; padding:10px; background:#f8f9fa; border-radius:6px;"><a href="{% url 'login' %}?next={{ request.path }}" style="color:#e74847; font-weight:600;">Login</a> to write a review.</p>
+                <p class="pd-login-hint"><a href="{% url 'login' %}?next={{ request.path }}">Login</a> to write a review.</p>
                 {% endif %}
               </div>
               <div id="tab-shipping" class="tab-pane">
-                <div style="line-height:1.9; color:#555;">
-                  {% if product.weight or product.length or product.width or product.height %}
-                  <div style="padding:15px; background:#f8f9fa; border-radius:8px; margin-bottom:20px;">
-                    <h4 style="color:#333; margin-bottom:10px;"><i class="fa fa-cube" style="color:#8a2be2;"></i> Product Specifications</h4>
-                    <table style="width:100%; max-width:500px; border-collapse:collapse;">
-                      {% if product.weight %}<tr style="border-bottom:1px solid #eee;"><td style="padding:8px; color:#888; width:40%;">Weight</td><td style="padding:8px;">{{ product.weight }} {{ product.get_weight_unit_display }}</td></tr>{% endif %}
-                      {% if product.length or product.width or product.height %}<tr style="border-bottom:1px solid #eee;"><td style="padding:8px; color:#888;">Dimensions</td><td style="padding:8px;">{{ product.length|default:"—" }} × {{ product.width|default:"—" }} × {{ product.height|default:"—" }} {{ product.get_dimension_unit_display }}</td></tr>{% endif %}
-                      {% if product.sale_unit %}<tr><td style="padding:8px; color:#888;">Sold by</td><td style="padding:8px;">{{ product.get_sale_unit_display }}</td></tr>{% endif %}
-                    </table>
-                  </div>
+                {% if product.weight or product.length or product.width or product.height or product.sale_unit %}
+                <div class="pd-specs">
+                  <h4 class="pd-specs-title"><i class="fa fa-cube pd-fc-ico"></i> Product Specifications</h4>
+                  {% if product.weight %}
+                  <div class="pd-spec-row"><span>Weight</span><strong>{{ product.weight }} {{ product.get_weight_unit_display }}</strong></div>
                   {% endif %}
-                  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">
-                    <div style="padding:15px; background:#e8f5e9; border-radius:8px; text-align:center;">
-                      <i class="fa fa-truck" style="font-size:24px; color:#28a745; margin-bottom:8px;"></i>
-                      <h5 style="color:#333; margin-bottom:5px;">{{ page_settings.shipping_delivery_title }}</h5>
-                      <p style="font-size:13px; color:#666; margin:0;">{{ page_settings.shipping_delivery_text }}</p>
-                    </div>
-                    <div style="padding:15px; background:#fff3e0; border-radius:8px; text-align:center;">
-                      <i class="fa fa-undo" style="font-size:24px; color:#f57c00; margin-bottom:8px;"></i>
-                      <h5 style="color:#333; margin-bottom:5px;">{{ page_settings.shipping_return_title }}</h5>
-                      <p style="font-size:13px; color:#666; margin:0;">{{ page_settings.shipping_return_text }}</p>
-                    </div>
-                    <div style="padding:15px; background:#e3f2fd; border-radius:8px; text-align:center;">
-                      <i class="fa fa-money" style="font-size:24px; color:#1565c0; margin-bottom:8px;"></i>
-                      <h5 style="color:#333; margin-bottom:5px;">{{ page_settings.shipping_payment_title }}</h5>
-                      <p style="font-size:13px; color:#666; margin:0;">{{ page_settings.shipping_payment_text }}</p>
-                    </div>
+                  {% if product.length or product.width or product.height %}
+                  <div class="pd-spec-row"><span>Dimensions</span><strong>{{ product.length|default:"—" }} &times; {{ product.width|default:"—" }} &times; {{ product.height|default:"—" }} {{ product.get_dimension_unit_display }}</strong></div>
+                  {% endif %}
+                  {% if product.sale_unit %}
+                  <div class="pd-spec-row"><span>Sold by</span><strong>{{ product.get_sale_unit_display }}</strong></div>
+                  {% endif %}
+                </div>
+                {% endif %}
+                <div class="pd-service-grid">
+                  <div class="pd-service pd-svc-delivery">
+                    <span class="pd-svc-ico"><i class="fa fa-truck"></i></span>
+                    <h5>{{ page_settings.shipping_delivery_title }}</h5>
+                    <p>{{ page_settings.shipping_delivery_text }}</p>
+                  </div>
+                  <div class="pd-service pd-svc-return">
+                    <span class="pd-svc-ico"><i class="fa fa-undo"></i></span>
+                    <h5>{{ page_settings.shipping_return_title }}</h5>
+                    <p>{{ page_settings.shipping_return_text }}</p>
+                  </div>
+                  <div class="pd-service pd-svc-payment">
+                    <span class="pd-svc-ico"><i class="fa fa-money"></i></span>
+                    <h5>{{ page_settings.shipping_payment_title }}</h5>
+                    <p>{{ page_settings.shipping_payment_text }}</p>
                   </div>
                 </div>
               </div>
@@ -368,15 +406,119 @@
 {% endif %}
 
 <style>
-.star-rating input { display:none; }
-.star-rating label { cursor:pointer; display:inline-block; }
-.star-rating label i { font-size:24px; color:#ddd; }
-.star-rating input:checked ~ label i, .star-rating label:hover i, .star-rating label:hover ~ label i { color:#f39c12; }
+/* ==== Product detail tabs - modern ecommerce (Daraz-style) ==== */
+.pd-tabs { background: #fff; padding: 0 10px; margin: 0; border-bottom: 1px solid #ececec; white-space: nowrap; }
+.pd-tabs > li { margin-bottom: 0; }
+.pd-tabs > li > a,
+.pd-tabs.home-nav-tabs > li > a {
+	display: flex; align-items: center; gap: 6px;
+	padding: 14px 16px; color: #777; font-weight: 600; font-size: 14px;
+	background: transparent; border: none; border-radius: 0;
+	position: relative; margin-right: 0;
+}
+.pd-tabs > li > a:hover { background: transparent; color: #e74847; }
+.pd-tabs > li.active > a,
+.pd-tabs > li.active > a:hover,
+.pd-tabs > li.active > a:focus {
+	color: #e74847; background: transparent; border: none; border-radius: 0;
+}
+.pd-tabs > li.active > a::after {
+	content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px;
+	height: 3px; background: #e74847; border-radius: 3px 3px 0 0;
+}
+.pd-count {
+	background: #e74847; color: #fff; font-size: 11px; font-weight: 700;
+	padding: 1px 7px; border-radius: 10px; line-height: 1.5; font-style: normal;
+}
+.pd-tab-content { padding: 25px; }
+.pd-description { line-height: 1.9; color: #555; font-size: 15px; word-break: break-word; }
+.pd-video-wrap { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 800px; border-radius: 8px; }
+.pd-video-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 8px; }
+
+/* QA */
+.pd-qa-card { padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
+.pd-qa-card:last-of-type { border-bottom: none; }
+.pd-q { display: flex; gap: 10px; }
+.pd-q-icon { color: #e74847; font-size: 16px; line-height: 1.4; }
+.pd-q-text { font-weight: 600; color: #333; font-size: 14.5px; }
+.pd-q-meta { font-size: 12px; color: #999; margin-top: 3px; }
+.pd-a { margin: 10px 0 0 26px; padding: 12px 16px; background: #f4fdf6; border-left: 4px solid #28a745; border-radius: 8px; }
+.pd-a-badge { display: inline-block; font-size: 12px; color: #28a745; font-weight: 700; margin-bottom: 6px; }
+.pd-a-text { color: #555; font-size: 14px; line-height: 1.6; }
+.pd-a-meta { font-size: 12px; color: #999; margin-top: 6px; }
+.pd-a-pending { margin: 8px 0 0 26px; }
+.pd-pill { display: inline-block; font-size: 12px; color: #999; background: #f5f5f5; border-radius: 12px; padding: 4px 12px; }
+.pd-empty { text-align: center; color: #888; padding: 30px 0; }
+.pd-empty i { font-size: 34px; color: #ddd; display: block; margin-bottom: 8px; }
+.pd-empty p { margin: 0; }
+.pd-login-hint { text-align: center; padding: 12px; background: #f8f9fa; border-radius: 8px; color: #555; }
+.pd-login-hint a { color: #e74847; font-weight: 600; }
+
+.pd-form-card { margin-top: 22px; padding: 18px 20px; border: 1px solid #eee; border-radius: 10px; background: #fafafa; }
+.pd-form-card h4 { margin: 0 0 12px; font-size: 16px; font-weight: 700; color: #333; display: flex; align-items: center; gap: 8px; }
+.pd-fc-ico { color: #8a2be2; }
+.pd-textarea { border-radius: 8px; resize: vertical; }
+.pd-btn-submit { margin-top: 12px; padding: 9px 24px; background: #e74847; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
+.pd-btn-submit:hover { background: #d63c3b; }
+
+/* Reviews */
+.pd-review-summary { display: flex; gap: 30px; align-items: center; flex-wrap: wrap; padding: 0 0 22px; border-bottom: 1px solid #f0f0f0; margin-bottom: 20px; }
+.pd-rs-left { text-align: center; flex: 0 0 auto; }
+.pd-rs-score { font-size: 38px; font-weight: 800; color: #333; line-height: 1; }
+.pd-rs-stars { font-size: 16px; color: #f39c12; margin: 6px 0 4px; }
+.pd-rs-count { font-size: 13px; color: #888; }
+.pd-rs-bars { flex: 1 1 280px; min-width: 240px; }
+.pd-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.pd-bar-label { flex: 0 0 52px; font-size: 12.5px; color: #666; font-weight: 600; }
+.pd-bar-label i { color: #f39c12; font-size: 11px; }
+.pd-bar-track { flex: 1; height: 8px; background: #eee; border-radius: 6px; overflow: hidden; }
+.pd-bar-fill { height: 100%; background: linear-gradient(90deg, #f6a723, #f39c12); border-radius: 6px; }
+.pd-bar-pct { flex: 0 0 42px; font-size: 12px; color: #777; text-align: right; }
+
+.pd-review-card { display: flex; gap: 12px; padding: 16px 0; border-bottom: 1px solid #f2f2f2; }
+.pd-review-card:last-of-type { border-bottom: none; }
+.pd-avatar { flex: 0 0 42px; width: 42px; height: 42px; border-radius: 50%; background: #8a2be2; color: #fff; font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.pd-review-body { flex: 1; min-width: 0; }
+.pd-review-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pd-reviewer { font-weight: 700; color: #333; font-size: 14.5px; }
+.pd-verified { font-size: 11.5px; color: #28a745; font-weight: 600; }
+.pd-verified i { margin-right: 2px; }
+.pd-review-stars { font-size: 13px; color: #f39c12; margin-left: 2px; }
+.pd-review-date { font-size: 12px; color: #999; margin-top: 2px; }
+.pd-review-comment { color: #555; font-size: 14px; line-height: 1.7; margin: 8px 0 0; }
+.pd-review-img { max-width: 200px; border-radius: 8px; margin-top: 10px; display: block; }
+
+/* Star picker */
+.pd-star-picker { display: flex; align-items: center; gap: 12px; margin: 10px 0 4px; }
+.pd-sp-label { font-weight: 600; color: #555; font-size: 14px; }
+.star-rating { display: inline-flex; flex-direction: row; }
+.star-rating input { display: none; }
+.star-rating label { cursor: pointer; display: inline-block; padding: 0 1px; }
+.star-rating label i { font-size: 26px; color: #ddd; }
+.star-rating input:checked ~ label i, .star-rating label:hover i, .star-rating label:hover ~ label i { color: #f39c12; }
+.pd-upload-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; color: #666; font-weight: 600; cursor: pointer; border: 1px dashed #ccc; padding: 8px 14px; border-radius: 8px; }
+.pd-upload-btn:hover { border-color: #8a2be2; color: #8a2be2; }
+
+/* Shipping */
+.pd-specs { max-width: 640px; border: 1px solid #eee; border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
+.pd-specs-title { padding: 14px 18px; margin: 0; font-size: 15px; font-weight: 700; color: #333; border-bottom: 1px solid #eee; background: #fafafa; display: flex; align-items: center; gap: 8px; }
+.pd-spec-row { display: flex; justify-content: space-between; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #f2f2f2; font-size: 14px; }
+.pd-spec-row:last-child { border-bottom: none; }
+.pd-spec-row:nth-child(odd) { background: #fafafa; }
+.pd-spec-row span { color: #888; }
+.pd-spec-row strong { color: #333; text-align: right; }
+.pd-service-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.pd-service { border: 1px solid #eee; border-radius: 12px; padding: 20px 16px; text-align: center; }
+.pd-service h5 { margin: 12px 0 6px; font-size: 15px; font-weight: 700; color: #333; }
+.pd-service p { font-size: 13px; color: #666; margin: 0; line-height: 1.6; }
+.pd-svc-ico { width: 52px; height: 52px; margin: 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.pd-svc-delivery .pd-svc-ico { background: #e8f5e9; color: #28a745; }
+.pd-svc-return .pd-svc-ico { background: #fff3e0; color: #f57c00; }
+.pd-svc-payment .pd-svc-ico { background: #e3f2fd; color: #1565c0; }
 
 @media (max-width: 768px) {
-  .product-tabs div[style*="grid-template-columns"] {
-    grid-template-columns: 1fr !important;
-  }
+	.pd-service-grid { grid-template-columns: 1fr; }
+	.pd-tab-content { padding: 16px 14px !important; }
 }
 </style>
 {% endblock %}
@@ -409,15 +551,7 @@
         });
     });
 
-    // Hover-switch for product detail tabs
-    var tabLinks = document.querySelectorAll('.product-tabs .home-nav-tabs li a');
-    tabLinks.forEach(function(link) {
-        link.addEventListener('mouseenter', function() {
-            if (typeof $ !== 'undefined' && $.fn.tab) {
-                $(this).tab('show');
-            }
-        });
-    });
+    // Hover-switch removed; tabs use standard click via Bootstrap tab.
 })();
 </script>
 <script>

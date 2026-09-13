@@ -17,6 +17,10 @@
 	.desktop-only { display: none !important; }
 	.mobile-only { display: block !important; }
 
+	/* Hide "Categories" entry in the mobile menu drawer;
+	   bottom-nav Categories stays. PC main-menu Category not affected. */
+	.mobile-menu .cat-accordion-m { display: none !important; }
+
 	/* Sanity: clip any accidental horizontal overflow on phones */
 	html, body { overflow-x: hidden; }
 	body { padding-bottom: 58px; padding-top: 106px; transition: padding-top 0.25s ease; }
@@ -351,22 +355,30 @@
 	.product-view .product-shop { padding-left: 0 !important; }
 	.product-view .product-name { font-size: 17px !important; }
 	.product-tabs { margin-top: 18px !important; }
+	.product-tabs .nav.home-nav-tabs.pd-tabs,
 	.product-tabs .nav.home-nav-tabs {
 		display: flex;
 		flex-wrap: nowrap;
 		overflow-x: auto;
-		padding: 4px 8px !important;
+		padding: 0 6px !important;
 		-webkit-overflow-scrolling: touch;
 		scrollbar-width: none;
 	}
 	.product-tabs .nav.home-nav-tabs::-webkit-scrollbar { display: none; }
 	.product-tabs .nav.home-nav-tabs li { flex: 0 0 auto; }
-	.product-tabs .nav.home-nav-tabs li a { font-size: 12px; padding: 8px 10px; }
+	.product-tabs .nav.home-nav-tabs li a { font-size: 12px; padding: 12px 11px; }
+	.product-tabs .pd-tabs > li > a { gap: 5px; }
+	.product-tabs .pd-count { font-size: 10px; padding: 0 5px; }
 	.product-tabs .tab-content { padding: 14px !important; }
 	.product-tabs .tab-content .tab-pane { min-width: 0; overflow-wrap: break-word; }
 	.product-tabs .tab-content img,
 	.product-tabs .tab-content table,
 	.product-tabs .tab-content iframe { max-width: 100% !important; height: auto; }
+	.pd-review-summary { flex-direction: column; align-items: flex-start; gap: 16px; }
+	.pd-rs-left { text-align: left; display: flex; flex-direction: column; align-items: center; width: 100%; }
+	.pd-rs-bars { width: 100%; min-width: 0; }
+	.pd-review-card { padding: 14px 0; }
+	.pd-a, .pd-a-pending { margin-left: 0; }
 	.breadcrumbs { font-size: 12px !important; }
 
 	/* --------------------------------------------------------
