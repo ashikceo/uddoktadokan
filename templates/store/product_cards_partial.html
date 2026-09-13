@@ -1,6 +1,6 @@
 {% for product in products %}
 <li class="grid-item">
-  {% include 'store/product_card.html' %}
+  {% include 'store/product_card.html' with no_actions=True %}
 </li>
 {% empty %}
 {% endfor %}

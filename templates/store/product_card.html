@@ -12,11 +12,13 @@
     {% endif %}
     <div class="item-inner">
         <div class="product-thumbnail">
+            {% if not no_actions %}
             <div class="btn-quickview">
                 <a href="{% url 'product_detail' product.slug %}">
                     <span>Order Now</span>
                 </a>
             </div>
+            {% endif %}
             <a href="{% url 'product_detail' product.slug %}" class="product-item-photo">
                 {% if product.image %}
                 <img class="product-image-photo img-fluid rounded" style="height: 210px; object-fit: cover;"
@@ -66,6 +68,7 @@
                     </div>
                 </div>
             </div>
+            {% if not no_actions %}
             <div class="box-hover">
                 <div class="product-item-actions">
                     <div class="pro-actions">
@@ -86,6 +89,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>

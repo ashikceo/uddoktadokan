@@ -143,7 +143,7 @@
                 <ul class="products-grid row">
                   {% for product in products %}
                   <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
-                    {% include 'store/product_card.html' %}
+                    {% include 'store/product_card.html' with no_actions=True %}
                   </li>
                   {% empty %}
                   <li class="col-xs-12"><p>No products available.</p></li>
@@ -156,7 +156,7 @@
                 <ul class="products-grid row">
                   {% for product in new_products %}
                   <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
-                    {% include 'store/product_card.html' %}
+                    {% include 'store/product_card.html' with no_actions=True %}
                   </li>
                   {% empty %}
                   <li class="col-xs-12"><p>No new products.</p></li>
@@ -169,7 +169,7 @@
                 <ul class="products-grid row">
                   {% for product in discounted_products %}
                   <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
-                    {% include 'store/product_card.html' %}
+                    {% include 'store/product_card.html' with no_actions=True %}
                   </li>
                   {% empty %}
                   <li class="col-xs-12"><p>No discounted products.</p></li>
@@ -182,7 +182,7 @@
                 <ul class="products-grid row">
                   {% for product in hot_products %}
                   <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
-                    {% include 'store/product_card.html' %}
+                    {% include 'store/product_card.html' with no_actions=True %}
                   </li>
                   {% empty %}
                   <li class="col-xs-12"><p>No hot items.</p></li>
@@ -272,7 +272,7 @@
             <ul class="products-grid row">
               {% for product in partner_products %}
               <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
-                {% include 'store/product_card.html' %}
+                {% include 'store/product_card.html' with no_actions=True %}
               </li>
               {% empty %}
               <li class="col-xs-12"><p>No partner products available.</p></li>
@@ -429,7 +429,7 @@
             <ul class="products-grid row">
               {% for product in hot_products %}
               <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
-                {% include 'store/product_card.html' %}
+                {% include 'store/product_card.html' with no_actions=True %}
               </li>
               {% empty %}
               <li class="col-xs-12"><p>No hot products.</p></li>

@@ -618,7 +618,7 @@
   .social-float a:hover{width:170px;justify-content:flex-start;padding-left:14px;gap:10px;box-shadow:4px 4px 16px rgba(0,0,0,0.25)}
   .social-float a::after{content:attr(data-name);position:absolute;left:48px;white-space:nowrap;font-size:13px;font-weight:700;opacity:0;transition:opacity 0.3s ease;letter-spacing:0.3px}
   .social-float a:hover::after{opacity:1}
-  @media(max-width:767px){.social-float a{width:38px;height:38px;font-size:17px}.social-float a:hover{width:140px;padding-left:12px}}
+  @media(max-width:767px){.social-float{display:none}.social-float a{width:38px;height:38px;font-size:17px}.social-float a:hover{width:140px;padding-left:12px}}
   </style>
   <div class="social-float">
     {% for link in social_links %}
