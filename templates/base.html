@@ -76,9 +76,9 @@
     <div class="mh-top">
       <button class="mh-btn mh-burger" id="mobileMenuBtn" type="button" aria-label="Menu"><i class="fa fa-bars"></i></button>
       <div class="mh-logo">
-        <a title="{{ site_name }}" href="{% url 'home' %}">
-          {% if site_logo and site_logo.logo %}
-          <img alt="{{ site_name }}" src="{{ site_logo.logo.url }}">
+        <a title="{{ site_name }}" href="{{ store_logo_link }}">
+          {% if store_logo_url %}
+          <img alt="{{ site_name }}" src="{{ store_logo_url }}">
           {% else %}
           <img alt="{{ site_name }}" src="{% static 'fonten_app/images/logo.png' %}">
           {% endif %}
@@ -153,9 +153,9 @@
         <div class="row">
           <div class="col-sm-3 col-md-3 col-xs-12">
             <div class="logo">
-              <a title="{{ site_name }}" href="{% url 'home' %}">
-                {% if site_logo and site_logo.logo %}
-                <img alt="{{ site_name }}" style="width: 185px;" src="{{ site_logo.logo.url }}">
+              <a title="{{ site_name }}" href="{{ store_logo_link }}">
+                {% if store_logo_url %}
+                <img alt="{{ site_name }}" style="width: 185px;" src="{{ store_logo_url }}">
                 {% else %}
                 <img alt="{{ site_name }}" style="width: 185px;" src="{% static 'fonten_app/images/logo.png' %}">
                 {% endif %}
@@ -508,11 +508,13 @@
         <div class="row">
           <div class="col-md-4">
             <div class="footer-logo">
-              {% if site_logo and site_logo.logo %}
-              <a href="{% url 'home' %}"><img src="{{ site_logo.logo.url }}" alt="{{ site_name }}" style="max-height:50px;"></a>
-              {% else %}
-              <a href="{% url 'home' %}"><h2 style="color:#e74847;">{{ site_name }}</h2></a>
-              {% endif %}
+              <a href="{{ store_logo_link }}">
+                {% if store_logo_url %}
+                <img src="{{ store_logo_url }}" alt="{{ site_name }}" style="max-height:50px;">
+                {% else %}
+                <h2 style="color:#e74847;">{{ site_name }}</h2>
+                {% endif %}
+              </a>
               {% if footer_about %}<p>{{ footer_about }}</p>{% endif %}
             </div>
           </div>

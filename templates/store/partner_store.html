@@ -1,19 +1,8 @@
 {% extends 'base.html' %}
-{% load static %}
 
 {% block title %}{{ partner.name }} Store{% endblock %}
 
 {% block theme %}{% if partner.theme %}{{ partner.theme }}{% else %}{{ site_theme }}{% endif %}{% endblock %}
-
-{% block logo_link %}{% if partner.custom_redirect_url %}{{ partner.custom_redirect_url }}{% else %}{% url 'home' %}{% endif %}{% endblock %}
-
-{% block site_logo %}
-{% if partner.logo %}
-<img src="{{ partner.logo.url }}" alt="{{ partner.name }} logo" style="max-height:50px; width:auto;">
-{% else %}
-<h2 style="font-size:24px; font-weight:700; color:#e74847; margin:0;">{{ partner.name }}</h2>
-{% endif %}
-{% endblock %}
 
 {% block nav_items %}
 <ul>

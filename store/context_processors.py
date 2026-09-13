@@ -51,6 +51,32 @@ def nav_menu(request):
     return {'nav_items': NavMenu.objects.filter(is_active=True)}
 
 
+def store_brand(request):
+    partner = getattr(request, 'custom_store', None)
+    if partner is None:
+        rm = getattr(request, 'resolver_match', None)
+        if rm and rm.url_name == 'partner_detail':
+            slug = rm.kwargs.get('slug')
+            if slug:
+                partner = (Partner.objects.filter(slug=slug, is_active=True)
+                           .only('id', 'logo', 'custom_redirect_url').first())
+    store_logo_url = None
+    if partner and partner.logo:
+        store_logo_url = partner.logo.url
+    else:
+        site_logo = SiteLogo.objects.first()
+        if site_logo and site_logo.logo:
+            store_logo_url = site_logo.logo.url
+    store_logo_link = '/'
+    if partner and partner.custom_redirect_url:
+        store_logo_link = partner.custom_redirect_url
+    return {
+        'store_partner': partner is not None,
+        'store_logo_url': store_logo_url,
+        'store_logo_link': store_logo_link,
+    }
+
+
 def category_menu(request):
     from .category_tree import get_tree
     return {'category_tree': get_tree()}

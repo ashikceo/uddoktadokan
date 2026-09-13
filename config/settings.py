@@ -102,6 +102,7 @@ TEMPLATES = [
                 'store.context_processors.site_info',
                 'store.context_processors.cart_count',
                 'store.context_processors.nav_menu',
+                'store.context_processors.store_brand',
                 'store.context_processors.category_menu',
                 'store.context_processors.wallet_balance',
                 'store.context_processors.wishlist_count',
