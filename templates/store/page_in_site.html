@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if page.meta_title %}{{ page.meta_title }}{% else %}{{ page.title }} - {{ site_name }}{% endif %}{% endblock %}
+
+{% block meta_description %}{% if page.meta_description %}{{ page.meta_description }}{% else %}{{ site_tagline }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="main-container col2-left-layout">
+  <div class="container">
+    <div class="page-title"><h2>{{ page.title }}</h2></div>
+    <div class="row">
+      <div class="col-main col-sm-12 col-xs-12">
+        <div class="my-account">
+          <div id="cmsPage" style="padding:20px 25px; background:#fff; border:1px solid #eee; border-radius:8px; overflow:hidden; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif,'SolaimanLipi'; font-size:16px; line-height:1.8; color:#333;">
+            {{ cms_html|safe }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Custom Domain - Uddoktar Dokan{% endblock %}
+
+{% block extra_css %}
+<style>
+.domain-form{border:1px solid #eee;border-radius:8px;padding:22px 24px;background:#fff;margin-bottom:24px}
+.domain-form label{font-size:13px;font-weight:600;color:#333;margin-bottom:6px;display:block}
+.domain-form input[type="text"]{width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px}
+.domain-form input[type="text"]:focus{outline:none;border-color:#e74847}
+.domain-card{border:1px solid #eee;border-radius:8px;background:#fff;padding:18px 20px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.domain-card .domain-name{font-size:16px;font-weight:700;color:#222}
+.badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-active{background:#d4edda;color:#155724}
+.badge-wait{background:#fff3cd;color:#856404}
+.badge-fail{background:#f8d7da;color:#721c24}
+.badge-dim{background:#e9ecef;color:#495057}
+.hint{background:#f1f7ff;border:1px solid #d6e4ff;border-radius:8px;padding:14px 18px;font-size:13px;color:#1d4e89;margin-bottom:22px;line-height:1.7}
+.hint code{background:#e5efff;padding:2px 6px;border-radius:4px;font-size:12px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container page-content">
+    <div class="breadcrumb">
+        <a href="{% url 'home' %}">Home</a> / <a href="{% url 'dashboard' %}">Dashboard</a> / <span>Custom Domain</span>
+    </div>
+    <div class="page-header"><h1>My Custom Domain</h1></div>
+
+    {% if not custom_domain_enabled %}
+    <div class="hint" style="background:#fff3cd;border-color:#ffe0a0;color:#7a5d00;">
+        Custom domains are temporarily disabled on this platform.
+    </div>
+    {% endif %}
+
+    <div class="shipping-box" style="border:1px solid #eee;border-radius:8px;padding:18px 20px;background:#fff;margin-bottom:22px;">
+        <h3 style="margin:0 0 6px;color:#333;">How it works</h3>
+        <p style="font-size:13px;color:#666;line-height:1.8;margin:0;">
+            Add the domain you already own (for example <strong>mystore.com</strong>) and we will make it your
+            storefront automatically. Our system periodically checks your DNS, issues a free SSL certificate,
+            and activates the domain — <strong>no technical setup needed by you</strong>. You are looking for these steps:
+        </p>
+    </div>
+
+    {% if primary_domain and primary_domain.status == 'active' %}
+    <div class="hint" style="background:#d4edda;border-color:#a9dfb5;color:#155724;">
+        <strong>{{ primary_domain.domain }}</strong> is now live — visitors will see your store when they
+        open <code>https://{{ primary_domain.domain }}</code>. The platform address stays in the address bar.
+    </div>
+    {% endif %}
+
+    <div class="domain-form">
+        <h3 style="margin:0 0 14px;color:#333;">Connect a new domain</h3>
+        <form method="post" style="display:flex;gap:10px;align-items:flex-end;">
+            {% csrf_token %}
+            <div style="flex:1;">
+                <label for="domain">Your domain</label>
+                <input type="text" id="domain" name="domain" placeholder="mystore.com" required
+                       pattern="[a-zA-Z0-9\.\+\-~]+" title="Enter a plain domain like mystore.com">
+            </div>
+            <button type="submit" name="action" value="add" class="btn btn-primary" style="padding:12px 24px;white-space:nowrap;">
+                <i class="fa fa-globe"></i> Add Domain
+            </button>
+        </form>
+        <p style="font-size:12px;color:#888;margin:12px 0 0;">
+            Enter the bare domain without "https://" or "www." — e.g. <strong>mystore.com</strong>. Subdomains like <strong>shop.mystore.com</strong> are supported too.
+        </p>
+        {% if server_ip or platform_domain %}
+        <div style="margin-top:14px;padding:12px 14px;background:#f8f9fa;border-radius:6px;font-size:12.5px;color:#555;line-height:1.8;">
+            <strong style="color:#333;">After adding the domain, log in to your domain registrar and point it here:</strong><br>
+            {% if server_ip %}
+            &bull; <strong>Apex (mystore.com)</strong> → A record → <code>{{ server_ip }}</code> &nbsp;|&nbsp; <strong>www</strong> → CNAME → <code>{{ platform_domain }}</code>
+            {% else %}
+            &bull; <strong>Apex (mystore.com)</strong> → A record → <em>your server IP</em> &nbsp;|&nbsp; <strong>www</strong> → CNAME → <code>{{ platform_domain }}</code>
+            {% endif %}
+            <br>&bull; DNS changes can take up to 48 hours, but usually apply within minutes. We poll automatically and activate the store for you.
+        </div>
+        {% endif %}
+    </div>
+
+    <h3 style="margin:0 0 14px;color:#333;">Domains</h3>
+
+    {% if domains %}
+        {% for domain in domains %}
+        <div class="domain-card">
+            <div style="flex:1;min-width:220px;">
+                <div class="domain-name">{{ domain.domain }}</div>
+                <div style="font-size:12px;color:#888;margin-top:4px;">
+                    Added {{ domain.created_at|date:"d M Y" }} &middot;
+                    Account type: {{ domain.get_account_type_display|default:account_label }}
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+                <span class="badge {% if domain.status == 'active' %}badge-active{% elif domain.status == 'failed' %}badge-fail{% elif domain.status == 'disconnected' %}badge-dim{% else %}badge-wait{% endif %}">
+                    Status: {{ domain.get_status_display }}
+                </span>
+                <span class="badge {% if domain.dns_status == 'connected' %}badge-active{% elif domain.dns_status == 'failed' %}badge-fail{% else %}badge-wait{% endif %}">
+                    DNS: {{ domain.get_dns_status_display }}
+                </span>
+                <span class="badge {% if domain.ssl_status == 'active' %}badge-active{% elif domain.ssl_status in 'provisioning waiting' %}badge-wait{% else %}badge-dim{% endif %}">
+                    SSL: {{ domain.get_ssl_status_display }}
+                </span>
+            </div>
+            <div style="font-size:12px;color:#666;min-width:200px;max-width:330px;">
+                {% if domain.error_message %}
+                    <div style="color:#b34a3c;">{{ domain.error_message }}</div>
+                {% endif %}
+                {% if domain.is_active and domain.is_primary %}
+                    <div style="color:#155724;font-weight:600;">&#9679; Active store domain</div>
+                {% endif %}
+                {% if domain.ssl_expires_at %}
+                    <div>SSL expires: {{ domain.ssl_expires_at|date:"d M Y" }}</div>
+                {% endif %}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:130px;">
+                {% if not domain.is_active or not domain.is_primary %}
+                <form method="post" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="pk" value="{{ domain.pk }}">
+                    <button type="submit" name="action" value="set_primary" class="btn btn-outline"
+                            style="width:100%;font-size:11px;padding:6px 10px;" {% if domain.status != 'active' %}disabled{% endif %}>
+                        {% if domain.status == 'active' %}Use as live domain{% else %}Activate (after SSL){% endif %}
+                    </button>
+                </form>
+                {% endif %}
+                <form method="post" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="pk" value="{{ domain.pk }}">
+                    <button type="submit" name="action" value="recheck" class="btn btn-outline"
+                            style="width:100%;font-size:11px;padding:6px 10px;">Check now</button>
+                </form>
+                <form method="post" style="margin:0;" onsubmit="return confirm('Disconnect {{ domain.domain }}? This will stop serving your store on that domain.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="pk" value="{{ domain.pk }}">
+                    <button type="submit" name="action" value="disconnect" class="btn btn-danger"
+                            style="width:100%;font-size:11px;padding:6px 10px;">Disconnect</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color:#888;font-size:13px;background:#f8f9fa;border:1px dashed #ddd;border-radius:8px;padding:20px;">
+            You have not connected any custom domains yet. Add your first domain above and we will activate it automatically.
+        </p>
+    {% endif %}
+
+    <p style="font-size:12px;color:#888;margin-top:18px;">
+        Domains are checked every few minutes in the background. If anything fails, the system keeps retrying automatically —
+        you do not need to contact support for ordinary DNS or SSL delays.
+    </p>
+</div>
+{% endblock %}

@@ -106,6 +106,12 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Custom Logo Redirect URL</label>
+                    <input type="url" name="custom_redirect_url" class="form-control" value="{{ partner.custom_redirect_url }}" placeholder="https://example.com">
+                    <p style="color:#888; font-size:11px; margin-top:5px;">When someone clicks your store logo, they will be sent to this URL. Leave blank to send them to the homepage.</p>
+                </div>
+
+                <div class="form-group">
                     <label>Extra Banners (for bottom section)</label>
                     <input type="file" name="new_banners" class="form-control" accept="image/*" multiple>
                     <p style="color:#888; font-size:11px; margin-top:5px;">You can add multiple banners. They appear in a 40:60 layout at the bottom of your store page.</p>

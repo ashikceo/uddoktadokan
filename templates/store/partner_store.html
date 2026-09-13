@@ -5,6 +5,8 @@
 
 {% block theme %}{% if partner.theme %}{{ partner.theme }}{% else %}{{ site_theme }}{% endif %}{% endblock %}
 
+{% block logo_link %}{% if partner.custom_redirect_url %}{{ partner.custom_redirect_url }}{% else %}{% url 'home' %}{% endif %}{% endblock %}
+
 {% block site_logo %}
 {% if partner.logo %}
 <img src="{{ partner.logo.url }}" alt="{{ partner.name }} logo" style="max-height:50px; width:auto;">
@@ -49,276 +51,420 @@
 </a>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+/* Partner Slider */
+.partner-slider{position:relative;overflow:hidden;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+.partner-slider .slide{display:none;position:relative}
+.partner-slider .slide.active-slide{display:block}
+.partner-slider .slide img{width:100%;height:250px;object-fit:cover;display:block}
+.partner-slider .slide-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.7));padding:20px;color:#fff}
+.partner-slider .slide-title{font-size:20px;font-weight:700;margin:0 0 5px}
+.partner-slider .slide-subtitle{font-size:14px;margin:0 0 10px;opacity:0.9}
+.partner-slider .btn-slide{display:inline-block;padding:8px 20px;background:#e74847;color:#fff;border-radius:4px;text-decoration:none;font-weight:600;font-size:13px}
+.partner-slider .slider-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.4);color:#fff;border:none;padding:12px 16px;cursor:pointer;font-size:20px;border-radius:4px;z-index:5;transition:background 0.3s}
+.partner-slider .slider-arrow:hover{background:rgba(0,0,0,0.7)}
+.partner-slider .slider-arrow-left{left:10px}
+.partner-slider .slider-arrow-right{right:10px}
+.partner-slider .slider-nav{text-align:center;padding:10px 0}
+.partner-slider .slider-nav span{display:inline-block;width:12px;height:12px;border-radius:50%;background:#ccc;margin:0 4px;cursor:pointer;transition:background 0.3s}
+.partner-slider .slider-nav span.active-dot{background:#e74847}
+
+/* Sidebar Random Products */
+.sidebar-random-box{background:#fff;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,0.08);overflow:hidden}
+.sidebar-random-box .block-title{font-size:16px;font-weight:700;border-bottom:2px solid #e74847;padding:12px 15px;margin:0;color:#333}
+.sidebar-random-box .block-title.offers-title{text-align:center;font-size:15px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#e74847;border-bottom:none;padding:12px 15px 8px;background:linear-gradient(180deg,transparent 0%,rgba(231,72,71,0.06) 100%);position:relative}
+.sidebar-random-box .block-title.offers-title::after{content:'';display:block;width:60px;height:3px;background:linear-gradient(90deg,#e74847,#ff8a80);border-radius:2px;margin:6px auto 0}
+.sidebar-product-list{height:400px;overflow:hidden;position:relative}
+.sidebar-product-scroll{animation:scrollProductsUp 15s linear infinite}
+.sidebar-product-scroll:hover{animation-play-state:paused}
+@keyframes scrollProductsUp{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
+.sidebar-product-item{display:flex;gap:10px;padding:10px 15px;border-bottom:1px solid #f0f0f0;transition:background 0.2s}
+.sidebar-product-item:hover{background:#f9f9f9}
+.sidebar-product-item img{width:60px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0}
+.sidebar-product-item .sp-info{flex:1;min-width:0}
+.sidebar-product-item .sp-name{display:block;font-size:13px;color:#333;text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-product-item .sp-name:hover{color:#e74847}
+.sidebar-product-item .sp-price{display:block;color:#e74847;font-size:14px;font-weight:700;margin-top:2px}
+
+/* Products By Partner Grid */
+.partner-products-grid{margin-bottom:30px}
+.partner-products-grid .section-header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #e74847;padding-bottom:10px;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.partner-products-grid .section-header h3{margin:0;font-size:18px}
+.partner-products-grid .products-grid-row{display:flex;flex-wrap:wrap;margin:0 -8px}
+.partner-products-grid .products-grid-row .item{width:26.5%;margin-left:-1%;margin-right:-1%;padding:0 8px;box-sizing:border-box;margin-bottom:15px}
+@media(max-width:991px){.partner-products-grid .products-grid-row .item{width:31.33%}}
+@media(max-width:767px){.partner-products-grid .products-grid-row .item{width:33.3333%;margin-left:0;margin-right:0}}
+@media(max-width:479px){.partner-products-grid .products-grid-row .item{width:50%}}
+@media(max-width:767px){.partner-products-grid .products-grid-row .product-image-photo{height:140px !important;object-fit:contain}}
+
+/* Tabs */
+.partner-tabs .tab-nav{display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:0}
+.partner-tabs .tab-nav button{padding:10px 20px;border:none;background:#f5f5f5;cursor:pointer;font-weight:600;font-size:14px;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s}
+.partner-tabs .tab-nav button:hover,.partner-tabs .tab-nav button.active-tab{color:#e74847;border-bottom-color:#e74847;background:#fff}
+.partner-tabs .tab-pane-content{display:none}
+.partner-tabs .tab-pane-content.active-content{display:block}
+.partner-tabs .products-grid-row{display:flex;flex-wrap:wrap;margin:0 -8px}
+.partner-tabs .products-grid-row .item{width:26.5%;margin-left:-1%;margin-right:-1%;padding:0 8px;box-sizing:border-box;margin-bottom:15px}
+@media(max-width:1199px){.partner-tabs .products-grid-row .item{width:31.33%}}
+@media(max-width:991px){.partner-tabs .products-grid-row .item{width:31.33%}}
+@media(max-width:767px){.partner-tabs .products-grid-row .item{width:33.3333%;margin-left:0;margin-right:0}}
+@media(max-width:479px){.partner-tabs .products-grid-row .item{width:50%}}
+@media(max-width:767px){.partner-tabs .products-grid-row .product-image-photo{height:140px !important;object-fit:contain}}
+</style>
+{% endblock %}
+
 {% block content %}
 
+<!-- Partner Slider -->
 {% if show_slider and partner_sliders %}
 <div class="container" style="margin-top:20px;">
-<div style="border:1px solid #eee; padding:0; border-radius:6px; overflow:hidden;">
-<div class="slider" style="position:relative;">
+  <div class="partner-slider" id="partnerSlider">
     {% for slider in partner_sliders %}
-    <div class="slide" style="display:none;">
-        <div class="slide-image-wrapper" style="max-height:{{ slider.max_height }}px;">
-            <img src="{{ slider.image.url }}" alt="{{ slider.title }}"
-                 style="max-height:{{ slider.max_height }}px;"
-                 onerror="this.style.display='none'">
-            <div class="slide-overlay">
-                <div class="slide-content">
-                    {% if slider.title %}
-                    <h2 class="slide-title">{{ slider.title }}</h2>
-                    {% endif %}
-                    {% if slider.subtitle %}
-                    <p class="slide-subtitle">{{ slider.subtitle }}</p>
-                    {% endif %}
-                    {% if slider.link_url %}
-                    <a href="{% if '://' in slider.link_url or slider.link_url|first == '/' %}{{ slider.link_url }}{% else %}{% url 'shop_grid' %}{% endif %}"
-                       class="btn btn-slide">{{ slider.button_text|default:'Click for Partner' }}</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+    <div class="slide {% if forloop.first %}active-slide{% endif %}" data-slide="{{ forloop.counter }}">
+      {% if slider.link_url %}<a href="{% if '://' in slider.link_url or slider.link_url|first == '/' %}{{ slider.link_url }}{% else %}{% url 'shop_grid' %}{% endif %}">{% endif %}
+        <img src="{{ slider.image.url }}" alt="{{ slider.title }}" onerror="this.style.display='none'">
+      {% if slider.link_url %}</a>{% endif %}
+      <div class="slide-overlay">
+        {% if slider.title %}<h2 class="slide-title">{{ slider.title }}</h2>{% endif %}
+        {% if slider.subtitle %}<p class="slide-subtitle">{{ slider.subtitle }}</p>{% endif %}
+        {% if slider.link_url %}
+        <a href="{% if '://' in slider.link_url or slider.link_url|first == '/' %}{{ slider.link_url }}{% else %}{% url 'shop_grid' %}{% endif %}" class="btn-slide">{{ slider.button_text|default:'Click for Partner' }}</a>
+        {% endif %}
+      </div>
     </div>
     {% endfor %}
-    <a class="slider-arrow slider-arrow-left" onclick="prevSlide()">&#10094;</a>
-    <a class="slider-arrow slider-arrow-right" onclick="nextSlide()">&#10095;</a>
+    <button class="slider-arrow slider-arrow-left" onclick="partnerSlide(-1)">&#10094;</button>
+    <button class="slider-arrow slider-arrow-right" onclick="partnerSlide(1)">&#10095;</button>
     <div class="slider-nav">
-        {% for slider in partner_sliders %}
-        <span onclick="currentSlide({{ forloop.counter }})"></span>
-        {% endfor %}
+      {% for slider in partner_sliders %}
+      <span class="{% if forloop.first %}active-dot{% endif %}" onclick="partnerGoSlide({{ forloop.counter }})"></span>
+      {% endfor %}
     </div>
-</div>
-</div>
+  </div>
 </div>
 {% endif %}
 
-<!-- Partner Products - Top Area -->
-<div class="container" style="margin-bottom:30px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #e74847; padding-bottom:10px; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-        <h3 style="margin:0;">Products by {{ partner.name }}</h3>
-        <a href="{% url 'customer_message_create' partner.id %}" class="btn btn-outline" style="font-size:12px; padding:6px 14px;"><i class="fa fa-question-circle"></i> Ask a Question</a>
+<!-- Partner Products By + Sidebar -->
+<div class="main-container col2-left-layout" style="margin-top:30px;">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <div class="partner-products-grid">
+          <div class="section-header">
+            <h3>Products by {{ partner.name }}</h3>
+            <a href="{% url 'customer_message_create' partner.id %}" style="padding:6px 14px;border:1px solid #e74847;color:#e74847;border-radius:4px;text-decoration:none;font-size:12px;font-weight:600;"><i class="fa fa-question-circle"></i> Ask a Question</a>
+          </div>
+          <div class="products-grid-row">
+            {% for product in products %}
+            <div class="item">
+              {% include 'store/product_card.html' %}
+            </div>
+            {% empty %}
+            <p>No products from this partner yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="partnerSidebar1">
+        <div class="sidebar-random-box">
+          <div class="block-title"><i class="fa fa-list"></i> Random Product List</div>
+          <div class="sidebar-product-list">
+            <div class="sidebar-product-scroll">
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% if sidebar_sliders %}
+        <div class="sidebar-random-box sidebar-offers-box" style="margin-top:15px;">
+          <div class="block-title offers-title">Offers</div>
+          <div id="partnerSidebarSlider" style="position:relative; height:220px; overflow:hidden;">
+            {% for slide in sidebar_sliders %}
+            <div class="partner-side-slide" style="{% if not forloop.first %}display:none;{% endif %} position:absolute; top:0; left:0; width:100%; height:100%;">
+              {% if slide.link_url %}<a href="{{ slide.link_url }}" style="display:block; width:100%; height:100%;">{% endif %}
+                <img src="{{ slide.image.url }}" alt="{{ slide.title }}" style="width:100%; height:100%; object-fit:contain; display:block; background:#f5f5f5;">
+                {% if slide.title %}
+                <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:8px 10px; color:#fff; font-size:12px; font-weight:600;">{{ slide.title }}</div>
+                {% endif %}
+              {% if slide.link_url %}</a>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <style>.partner-side-slide{opacity:1;transition:opacity 1s ease-in;}</style>
+        <script>
+        (function(){
+          var s=document.querySelectorAll('#partnerSidebarSlider .partner-side-slide');
+          if(s.length<=1)return;
+          var c=0;
+          setInterval(function(){
+            s[c].style.display='none';
+            c=(c+1)%s.length;
+            s[c].style.display='block';
+            s[c].style.opacity='0';
+            s[c].offsetHeight;
+            s[c].style.transition='opacity 1s ease-in';
+            s[c].style.opacity='1';
+          },1000);
+        })();
+        </script>
+        {% endif %}
+        {% if sidebar_bottom_banners %}
+        <div id="partnerBottomBanners1" style="margin-top:15px;">
+          {% for b in sidebar_bottom_banners %}
+          <a href="{% if b.link_url %}{{ b.link_url }}{% else %}#{% endif %}" style="display:block; margin-bottom:10px;">
+            <img src="{{ b.image.url }}" alt="{{ b.title }}" style="width:100%; border-radius:6px; object-fit:contain; background:#f5f5f5;">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
     </div>
-    <div class="product-grid">
-        {% for product in products %}
-        {% include 'store/product_card.html' %}
-        {% empty %}
-        <p>No products from this partner yet.</p>
-        {% endfor %}
-    </div>
+  </div>
 </div>
 
 {% if partner.banner %}
-<div class="partner-store-banner">
-    <img src="{{ partner.banner.url }}" alt="{{ partner.name }}">
-</div>
-{% endif %}
-
-{% if show_all_products_section or show_random_products_section %}
 <div class="container">
-    <div class="row">
-        {% if show_all_products_section %}
-        <div class="products-main">
-            <h3 class="section-title">All Over Available Product</h3>
-            <div class="product-tabs">
-                <div class="tab-nav">
-                    <button class="active" data-tab="tab-all">All</button>
-                    <button data-tab="tab-new">New</button>
-                    <button data-tab="tab-discounted">Discounted</button>
-                    <button data-tab="tab-hot">Hot Item</button>
-                </div>
-                <div id="tab-all" class="tab-content active">
-                    <div class="product-grid">
-                        {% for product in all_products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No products available.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div id="tab-new" class="tab-content">
-                    <div class="product-grid">
-                        {% for product in new_products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No new products.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div id="tab-discounted" class="tab-content">
-                    <div class="product-grid">
-                        {% for product in discounted_products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No discounted products.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div id="tab-hot" class="tab-content">
-                    <div class="product-grid">
-                        {% for product in hot_products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No hot items.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-        {% if show_random_products_section %}
-        <div class="products-side">
-            <h3 class="section-title">Random product list</h3>
-            <div class="product-list-vertical">
-                <div class="product-scroll-track">
-                {% for product in latest_products %}
-                <div class="product-list-item">
-                    <a href="{% url 'product_detail' product.slug %}">
-                        {% if product.image %}
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                        <img src="/static/img/placeholder_60x60.png" alt="{{ product.name }}">
-                        {% endif %}
-                    </a>
-                    <div>
-                        <a href="{% url 'product_detail' product.slug %}">{{ product.name|truncatechars:30 }}</a>
-                        <span class="price">৳ {{ product.price }}</span>
-                    </div>
-                </div>
-                {% empty %}
-                <p>No products.</p>
-                {% endfor %}
-                {% for product in latest_products %}
-                <div class="product-list-item">
-                    <a href="{% url 'product_detail' product.slug %}">
-                        {% if product.image %}
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                        <img src="/static/img/placeholder_60x60.png" alt="{{ product.name }}">
-                        {% endif %}
-                    </a>
-                    <div>
-                        <a href="{% url 'product_detail' product.slug %}">{{ product.name|truncatechars:30 }}</a>
-                        <span class="price">৳ {{ product.price }}</span>
-                    </div>
-                </div>
-                {% endfor %}
-                </div>
-            </div>
-            {% if side_banners %}
-            <div class="side-banners">
-                {% for banner in side_banners %}
-                <div class="side-banner">
-                    <a href="{% if banner.link_url %}{{ banner.link_url }}{% else %}#{% endif %}">
-                        <img src="{{ banner.image.url }}" alt="{{ banner.title }}">
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
-    </div>
+  <img src="{{ partner.banner.url }}" alt="{{ partner.name }}" style="width:100%;border-radius:8px;margin:20px 0;">
 </div>
 {% endif %}
 
-<!-- Partner Info + Extra Banners - Before Footer -->
-<div class="container" style="margin-top:40px; margin-bottom:40px; clear:both;">
-    <div style="display:flex; gap:30px; flex-wrap:wrap; overflow:hidden;">
-        <div style="flex:2; min-width:280px;">
-            <div style="display:flex; align-items:center; gap:20px; padding:20px; border:1px solid #eee; border-radius:8px;">
-                <div>
-                    {% if partner.profile_image %}
-                    <img src="{{ partner.profile_image.url }}" alt="{{ partner.name }}" style="width:80px; height:80px; border-radius:50%; object-fit:cover;">
-                    {% else %}
-                    <img src="/static/img/placeholder_80x80.png" alt="{{ partner.name }}" style="width:80px; height:80px; border-radius:50%;">
-                    {% endif %}
-                </div>
-                <div style="flex:1;">
-                    <h2 style="margin:0 0 5px;">{{ partner.name }}</h2>
-                    <p style="color:#666; margin:0;">{{ partner.description }}</p>
-                    {% if partner.phone %}
-                    <p style="margin:5px 0 0;"><i class="fa fa-phone"></i> {{ partner.phone }}</p>
-                    {% endif %}
-                    {% if partner.formatted_address %}
-                    <p style="margin:2px 0 0; color:#888; font-size:13px;"><i class="fa fa-map-marker"></i> {{ partner.formatted_address }}</p>
-                    {% endif %}
-                </div>
+<!-- All Over Available Product + Sidebar -->
+{% if show_all_products_section %}
+<div class="main-container col2-left-layout" style="margin-top:30px;">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <div class="partner-tabs">
+          <div class="tab-nav">
+            <button class="active-tab" data-tab="ptab-all">All</button>
+            <button data-tab="ptab-new">New</button>
+            <button data-tab="ptab-discounted">Discounted</button>
+            <button data-tab="ptab-hot">Hot Item</button>
+          </div>
+          <div id="ptab-all" class="tab-pane-content active-content">
+            <div class="products-grid-row">
+              {% for product in all_products %}
+              <div class="item">{% include 'store/product_card.html' %}</div>
+              {% empty %}<p>No products available.</p>{% endfor %}
             </div>
-            {% if partner.is_dealer and sellers or partner.is_union_agent and sellers %}
-            <details style="margin-top:20px; border:1px solid #eee; border-radius:8px; padding:15px 20px;">
-                <summary style="cursor:pointer; font-size:16px; font-weight:700; color:#333; outline:none;">
-                    Sellers under {{ partner.name }} ({{ sellers.count }})
-                </summary>
-                <div style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-                    {% for seller in sellers %}
-                    <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid #f0f0f0; border-radius:6px; background:#fff;">
-                        <div style="width:48px; height:48px; border-radius:50%; overflow:hidden; flex-shrink:0; background:#f5f5f5;">
-                            {% if seller.profile_image %}
-                            <img src="{{ seller.profile_image.url }}" alt="{{ seller.name }}" style="width:100%; height:100%; object-fit:cover;">
-                            {% else %}
-                            <img src="/static/img/placeholder_48x48.png" alt="" style="width:100%; height:100%; object-fit:cover;">
-                            {% endif %}
-                        </div>
-                        <div style="flex:1;">
-                            <strong style="font-size:14px;">{{ seller.name }}</strong>
-                            {% if seller.phone %}
-                            <p style="margin:2px 0 0; color:#888; font-size:12px;"><i class="fa fa-phone"></i> {{ seller.phone }}</p>
-                            {% endif %}
-                            {% if seller.description %}
-                            <p style="margin:2px 0 0; color:#999; font-size:12px;">{{ seller.description|truncatechars:60 }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </details>
-            {% endif %}
-            {% if partner.is_dealer and union_agents %}
-            <details style="margin-top:20px; border:1px solid #eee; border-radius:8px; padding:15px 20px;">
-                <summary style="cursor:pointer; font-size:16px; font-weight:700; color:#333; outline:none;">
-                    Union Agents under {{ partner.name }} ({{ union_agents.count }})
-                </summary>
-                <div style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-                    {% for agent in union_agents %}
-                    <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid #f0f0f0; border-radius:6px; background:#fff;">
-                        <div style="width:48px; height:48px; border-radius:50%; overflow:hidden; flex-shrink:0; background:#f5f5f5;">
-                            {% if agent.profile_image %}
-                            <img src="{{ agent.profile_image.url }}" alt="{{ agent.name }}" style="width:100%; height:100%; object-fit:cover;">
-                            {% else %}
-                            <img src="/static/img/placeholder_48x48.png" alt="" style="width:100%; height:100%; object-fit:cover;">
-                            {% endif %}
-                        </div>
-                        <div style="flex:1;">
-                            <strong style="font-size:14px;">{{ agent.name }}</strong>
-                            {% if agent.phone %}
-                            <p style="margin:2px 0 0; color:#888; font-size:12px;"><i class="fa fa-phone"></i> {{ agent.phone }}</p>
-                            {% endif %}
-                            {% if agent.description %}
-                            <p style="margin:2px 0 0; color:#999; font-size:12px;">{{ agent.description|truncatechars:60 }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </details>
-            {% endif %}
+          </div>
+          <div id="ptab-new" class="tab-pane-content">
+            <div class="products-grid-row">
+              {% for product in new_products %}
+              <div class="item">{% include 'store/product_card.html' %}</div>
+              {% empty %}<p>No new products.</p>{% endfor %}
+            </div>
+          </div>
+          <div id="ptab-discounted" class="tab-pane-content">
+            <div class="products-grid-row">
+              {% for product in discounted_products %}
+              <div class="item">{% include 'store/product_card.html' %}</div>
+              {% empty %}<p>No discounted products.</p>{% endfor %}
+            </div>
+          </div>
+          <div id="ptab-hot" class="tab-pane-content">
+            <div class="products-grid-row">
+              {% for product in hot_products %}
+              <div class="item">{% include 'store/product_card.html' %}</div>
+              {% empty %}<p>No hot items.</p>{% endfor %}
+            </div>
+          </div>
         </div>
-        <div style="flex:3; min-width:400px;">
-            {% if extra_banners %}
-            <div style="border:1px solid #eee; border-radius:8px; padding:15px; overflow:hidden;">
-                <div class="extra-banner-slider" style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:10px; scrollbar-width:thin;">
-                    {% for b in extra_banners %}
-                    <div style="flex:0 0 100%; scroll-snap-align:start; border-radius:6px; overflow:hidden;">
-                        <img src="{{ b.image.url }}" alt="Banner" style="width:100%; height:200px; object-fit:cover; display:block; border-radius:6px;">
-                    </div>
-                    {% endfor %}
+      </div>
+      {% if show_random_products_section %}
+      <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="partnerSidebar2">
+        <div class="sidebar-random-box">
+          <div class="block-title"><i class="fa fa-list"></i> Random Product List</div>
+          <div class="sidebar-product-list">
+            <div class="sidebar-product-scroll">
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
                 </div>
+              </div>
+              {% endfor %}
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
             </div>
-            {% else %}
-            <div style="border:1px solid #eee; border-radius:8px; padding:30px; text-align:center; display:flex; align-items:center; justify-content:center;">
-                <p style="color:#bbb;">No extra banners added yet.</p>
-            </div>
-            {% endif %}
+          </div>
         </div>
+        {% if side_banners %}
+        <div style="margin-top:15px;">
+          {% for banner in side_banners %}
+          <a href="{% if banner.link_url %}{{ banner.link_url }}{% else %}#{% endif %}">
+            <img src="{{ banner.image.url }}" alt="{{ banner.title }}" style="width:100%;border-radius:8px;margin-bottom:10px;">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
+  </div>
 </div>
-<hr style="border:none; border-top:2px solid #eee; margin:0;">
+{% endif %}
+
+<!-- Partner Info + Extra Banners -->
+<div class="container" style="margin-top:40px; margin-bottom:40px;">
+  <div style="display:flex; gap:30px; flex-wrap:wrap;">
+    <div style="flex:2; min-width:280px;">
+      <div style="display:flex; align-items:center; gap:20px; padding:20px; border:1px solid #eee; border-radius:8px;">
+        <div>
+          {% if partner.profile_image %}
+          <img src="{{ partner.profile_image.url }}" alt="{{ partner.name }}" style="width:80px; height:80px; border-radius:50%; object-fit:cover;">
+          {% else %}
+          <div style="width:80px; height:80px; border-radius:50%; background:#f0f0f0; display:flex; align-items:center; justify-content:center; font-size:28px; color:#999;"><i class="fa fa-user"></i></div>
+          {% endif %}
+        </div>
+        <div style="flex:1;">
+          <h2 style="margin:0 0 5px; font-size:18px;">{{ partner.name }}</h2>
+          <p style="color:#666; margin:0;">{{ partner.description }}</p>
+          {% if partner.phone %}<p style="margin:5px 0 0;"><i class="fa fa-phone"></i> {{ partner.phone }}</p>{% endif %}
+          {% if partner.formatted_address %}<p style="margin:2px 0 0; color:#888; font-size:13px;"><i class="fa fa-map-marker"></i> {{ partner.formatted_address }}</p>{% endif %}
+        </div>
+      </div>
+      {% if partner.is_dealer and sellers or partner.is_union_agent and sellers %}
+      <details style="margin-top:20px; border:1px solid #eee; border-radius:8px; padding:15px 20px;">
+        <summary style="cursor:pointer; font-size:16px; font-weight:700; color:#333; outline:none;">Sellers under {{ partner.name }} ({{ sellers.count }})</summary>
+        <div style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+          {% for seller in sellers %}
+          <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid #f0f0f0; border-radius:6px;">
+            <div style="width:48px; height:48px; border-radius:50%; overflow:hidden; flex-shrink:0; background:#f5f5f5;">
+              {% if seller.profile_image %}<img src="{{ seller.profile_image.url }}" style="width:100%; height:100%; object-fit:cover;">{% endif %}
+            </div>
+            <div style="flex:1;">
+              <strong style="font-size:14px;">{{ seller.name }}</strong>
+              {% if seller.phone %}<p style="margin:2px 0 0; color:#888; font-size:12px;"><i class="fa fa-phone"></i> {{ seller.phone }}</p>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </div>
+    <div style="flex:3; min-width:400px;">
+      {% if extra_banners %}
+      <div style="border:1px solid #eee; border-radius:8px; padding:15px; overflow:hidden;">
+        <div style="display:flex; overflow-x:auto; gap:10px; scroll-snap-type:x mandatory;">
+          {% for b in extra_banners %}
+          <div style="flex:0 0 100%; scroll-snap-align:start; border-radius:6px; overflow:hidden;">
+            <img src="{{ b.image.url }}" alt="Banner" style="width:100%; height:200px; object-fit:contain; display:block; border-radius:6px; background:#f5f5f5;">
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Partner Slider
+(function(){
+  var slides=document.querySelectorAll('#partnerSlider .slide');
+  var dots=document.querySelectorAll('#partnerSlider .slider-nav span');
+  var current=0;
+  var total=slides.length;
+  if(total<=1) return;
+  function showSlide(n){
+    slides.forEach(function(s){s.classList.remove('active-slide')});
+    dots.forEach(function(d){d.classList.remove('active-dot')});
+    current=((n%total)+total)%total;
+    slides[current].classList.add('active-slide');
+    dots[current].classList.add('active-dot');
+  }
+  window.partnerSlide=function(dir){showSlide(current+dir)};
+  window.partnerGoSlide=function(n){showSlide(n-1)};
+  setInterval(function(){showSlide(current+1)},1000);
+})();
+
+// Partner Tabs - hover switch
+(function(){
+  var navBtns=document.querySelectorAll('.partner-tabs .tab-nav button');
+  var panes=document.querySelectorAll('.partner-tabs .tab-pane-content');
+  function switchTab(idx){
+    navBtns.forEach(function(b){b.classList.remove('active-tab')});
+    panes.forEach(function(p){p.classList.remove('active-content')});
+    if(navBtns[idx]) navBtns[idx].classList.add('active-tab');
+    if(panes[idx]) panes[idx].classList.add('active-content');
+  }
+  navBtns.forEach(function(btn,i){
+    btn.addEventListener('click',function(){switchTab(i)});
+    btn.addEventListener('mouseenter',function(){switchTab(i)});
+  });
+})();
+
+// Sidebar height match — hide excess sidebar content when products are few
+(function(){
+  function matchSidebar(){
+    // Section 1: Products by partner
+    var s1=document.getElementById('partnerSidebar1');
+    if(s1){
+      var left=s1.closest('.row');
+      if(left){
+        var productCol=left.querySelector('.col-md-9');
+        if(productCol){
+          var productH=productCol.offsetHeight;
+          s1.style.maxHeight=productH+'px';
+          s1.style.overflow='hidden';
+        }
+      }
+    }
+    // Section 2: All Over Available Product
+    var s2=document.getElementById('partnerSidebar2');
+    if(s2){
+      var left2=s2.closest('.row');
+      if(left2){
+        var productCol2=left2.querySelector('.col-md-9');
+        if(productCol2){
+          var productH2=productCol2.offsetHeight;
+          s2.style.maxHeight=productH2+'px';
+          s2.style.overflow='hidden';
+        }
+      }
+    }
+  }
+  matchSidebar();
+  window.addEventListener('load',matchSidebar);
+  window.addEventListener('resize',matchSidebar);
+})();
+</script>
 {% endblock %}

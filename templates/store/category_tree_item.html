@@ -1,0 +1,17 @@
+{% load qs %}
+{% with children=cat.children %}
+<li class="cat-item {% if cat.id in current_category_ids %}active-path{% endif %}" style="padding:0; border-bottom:1px solid #f0f0f0;">
+  <a href="{{ cat.url }}" style="color:{% if current_category and cat.id == current_category.id %}#e74847{% else %}#333{% endif %}; text-decoration:none; font-size:13.5px; display:flex; align-items:center; gap:6px; padding:6px 0;">
+    {% if children %}<i class="fa fa-angle-right" style="color:#bbb;"></i>{% else %}<i class="fa fa-circle" style="font-size:5px; color:#ddd;"></i>{% endif %}
+    <span>{{ cat.name }}</span>
+    {% if cat.product_count %}<span style="margin-left:auto; background:#f5f5f5; border-radius:10px; padding:0 8px; font-size:11px; color:#888;">{{ cat.product_count }}</span>{% endif %}
+  </a>
+  {% if children %}
+  <ul class="cat-children" style="list-style:none; padding:0 0 0 16px; margin:0; {% if cat.id in current_category_ids %}display:block;{% else %}display:none;{% endif %}">
+    {% for child in children %}
+    {% include 'store/category_tree_item.html' with cat=child %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+</li>
+{% endwith %}

@@ -1,5 +1,6 @@
 {% for product in products %}
-{% include 'store/product_card.html' %}
+<li class="grid-item">
+  {% include 'store/product_card.html' %}
+</li>
 {% empty %}
-<p>No products found.</p>
 {% endfor %}

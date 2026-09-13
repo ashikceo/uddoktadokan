@@ -14,8 +14,25 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+# Custom-domain stores are DB-backed, so Django's static ALLOWED_HOSTS cannot
+# enumerate them. `*` is safe here because every request host is validated at
+# runtime by CustomDomainRoutingMiddleware (unlisted hosts get a 400).
+if '*' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('*')
 
 CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000').split(',')
+
+
+# Automated Custom Domain System (details: docs/custom_domains.md)
+PLATFORM_DOMAIN = os.getenv('PLATFORM_DOMAIN', 'uddoktardokan.com')
+SERVER_IP = os.getenv('SERVER_IP', '')
+CUSTOM_DOMAIN_ENABLED = os.getenv('CUSTOM_DOMAIN_ENABLED', 'True') == 'True'
+CUSTOM_DOMAIN_ALLOW_INTERNAL = os.getenv('CUSTOM_DOMAIN_ALLOW_INTERNAL', 'False') == 'True'
+ACME_EMAIL = os.getenv('ACME_EMAIL', os.getenv('SSL_EMAIL', ''))
+ACME_DIRECTORY_URL = os.getenv('ACME_DIRECTORY_URL', '')
+SSL_WEBROOT = os.getenv('SSL_WEBROOT', str(BASE_DIR / 'ssl_webroot'))
+CUSTOM_DOMAIN_CHECK_MINUTES = int(os.getenv('CUSTOM_DOMAIN_CHECK_MINUTES', '5'))
+CUSTOM_DOMAIN_RENEW_DAYS = int(os.getenv('CUSTOM_DOMAIN_RENEW_DAYS', '30'))
 
 
 # Application definition
@@ -59,9 +76,13 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # Runs after auth so the storefront rendered on a custom domain root has
+    # request.user; and before CSRF so form POSTs on custom domains (cart,
+    # checkout, wishlist...) validate against their own Origin.
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'store.middleware.CustomDomainRoutingMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -81,11 +102,13 @@ TEMPLATES = [
                 'store.context_processors.site_info',
                 'store.context_processors.cart_count',
                 'store.context_processors.nav_menu',
+                'store.context_processors.category_menu',
                 'store.context_processors.wallet_balance',
                 'store.context_processors.wishlist_count',
                 'store.context_processors.unread_notifications',
                 'store.context_processors.wishlist_compare_ids',
                 'store.context_processors.recently_viewed_products',
+                'store.context_processors.page_settings',
             ],
         },
     },
@@ -148,7 +171,14 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Uses CompressedStaticFilesStorage to fix the WhiteNoise conflict with your URLs media server routing
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 # Media routing for banner and product image file uploads
 MEDIA_URL = '/media/'
@@ -245,6 +275,14 @@ CELERY_BEAT_SCHEDULE = {
     'expire-expired-active-subscriptions': {
         'task': 'store.tasks.expire_expired_active_subscriptions',
         'schedule': 43200,
+    },
+    'check-custom-domains': {
+        'task': 'store.tasks.check_custom_domains_task',
+        'schedule': 300.0,
+    },
+    'renew-custom-domain-certificates': {
+        'task': 'store.tasks.renew_custom_domain_certificates',
+        'schedule': 86400.0,
     },
 }
 

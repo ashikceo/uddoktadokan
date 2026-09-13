@@ -4,6 +4,10 @@
 {% block title %}My Wishlist - {{ site_name }}{% endblock %}
 
 {% block content %}
+<style>
+@media(max-width:767px){.product-grid{grid-template-columns:repeat(3,1fr) !important;gap:10px}.product-grid img{height:130px !important;object-fit:contain}}
+@media(max-width:479px){.product-grid{grid-template-columns:repeat(2,1fr) !important}}
+</style>
 <div class="container page-content">
     <div class="page-header"><h1>My Wishlist {% if wishlist %}({{ wishlist.total_items }}){% endif %}</h1></div>
 

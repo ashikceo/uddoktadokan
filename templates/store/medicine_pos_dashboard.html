@@ -116,20 +116,32 @@ body { min-height:100vh; display:flex; flex-direction:column; }
             <div><strong>৳{{ today_total|floatformat:0 }}</strong><span> Total Today</span></div>
         </div>
         <div style="flex:1;"></div>
+        <form method="POST" action="{% url 'medicine_inventory_toggle' %}" style="display:inline;" onsubmit="return confirm('{% if partner.medicine_inventory_enabled %}Turn OFF inventory tracking? POS will work without stock counting.{% else %}Turn ON inventory tracking? POS will start counting stock.{% endif %}');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline no-print" style="font-size:12px;padding:5px 12px;cursor:pointer;{% if partner.medicine_inventory_enabled %}background:#e6f9e6;border-color:#28a745;color:#28a745;{% else %}background:#fff3f3;border-color:#dc3545;color:#dc3545;{% endif %}">
+                <i class="fa fa-toggle-{% if partner.medicine_inventory_enabled %}on{% else %}off{% endif %}"></i>
+                Inventory: {% if partner.medicine_inventory_enabled %}ON{% else %}OFF{% endif %}
+            </button>
+        </form>
+        <a href="{% url 'medicine_inventory_list' %}" class="btn btn-outline no-print" style="font-size:12px;background:#e7f7ff;border-color:#17a2b8;color:#17a2b8;"><i class="fa fa-cubes"></i> Inventory</a>
         <a href="{% url 'medicine_pos_order_list' %}" class="btn btn-outline no-print" style="font-size:12px;"><i class="fa fa-list"></i> Order History</a>
         <a href="{% url 'medicine_pos_daily_report' %}" class="btn btn-outline no-print" style="font-size:12px;"><i class="fa fa-bar-chart"></i> Report</a>
     </div>
 
     <div class="pos-wrapper">
         <div class="pos-products">
-            <input type="text" class="pos-search no-print" id="posSearch" placeholder="Search by brand, generic, strength..." autofocus>
+            <input type="text" class="pos-search no-print" id="posSearch" placeholder="{% if partner.medicine_inventory_enabled %}Search medicine (inventory ON)...{% else %}Search medicine (inventory OFF — no stock tracking)...{% endif %}" autofocus>
             <div class="pos-grid" id="posGrid">
                 {% for p in products %}
                 <div class="pos-product" data-id="{{ p.id }}" data-name="{{ p }}" data-price="{{ p.price }}" onclick="addToCart(this)">
                     <div class="brand">{{ p.brand_name }}</div>
                     <div class="generic">{{ p.generic_name|default:'—' }}</div>
                     <div class="strength">{{ p.strength|default:'' }} {{ p.dosage_form|default:'' }}</div>
-                    <div class="price">৳{{ p.price }}</div>
+                    <div class="strength" style="color:#888;">{{ p.manufacturer|default:'' }}</div>
+                    <div class="strength">{{ p.pack_size|default:'' }}</div>
+                    <div class="price">৳{{ p.price }}{% if p.pack_price %} <span style="font-size:11px;color:#888;">/pc</span>{% endif %}</div>
+                    {% if p.pack_price %}<div class="price" style="color:#28a745;font-size:13px;">Pack: ৳{{ p.pack_price }}</div>{% endif %}
+                    {% if partner.medicine_inventory_enabled %}{% if p.stock %}<div class="stock">Stock: {{ p.stock }}</div>{% endif %}{% endif %}
                 </div>
                  {% empty %}
                  <div style="grid-column:1/-1;text-align:center;padding:40px;color:#aaa;">
@@ -200,6 +212,7 @@ body { min-height:100vh; display:flex; flex-direction:column; }
 <script>
 let cart = [];
 let lastOrderData = null;
+const inventoryEnabled = {{ partner.medicine_inventory_enabled|yesno:"true,false" }};
 
 function addToCart(el) {
     const id = parseInt(el.dataset.id);
@@ -383,7 +396,16 @@ function searchProducts() {
             const brand = document.createElement('div'); brand.className = 'brand'; brand.textContent = p.brand_name; div.appendChild(brand);
             const generic = document.createElement('div'); generic.className = 'generic'; generic.textContent = p.generic_name || '—'; div.appendChild(generic);
             const strength = document.createElement('div'); strength.className = 'strength'; strength.textContent = (p.strength||'') + ' ' + (p.dosage_form||''); div.appendChild(strength);
-            const price = document.createElement('div'); price.className = 'price'; price.textContent = '৳' + p.price; div.appendChild(price);
+            if (p.manufacturer) { const mfr = document.createElement('div'); mfr.className = 'strength'; mfr.style.color = '#888'; mfr.textContent = p.manufacturer; div.appendChild(mfr); }
+            if (p.pack_size) { const ps = document.createElement('div'); ps.className = 'strength'; ps.textContent = p.pack_size; div.appendChild(ps); }
+            const price = document.createElement('div'); price.className = 'price'; price.textContent = '\u09F3' + p.price + (p.pack_price ? ' /pc' : ''); div.appendChild(price);
+            if (p.pack_price) { const pp = document.createElement('div'); pp.className = 'price'; pp.style.cssText = 'color:#28a745;font-size:13px;'; pp.textContent = 'Pack: \u09F3' + p.pack_price; div.appendChild(pp); }
+            if (inventoryEnabled && p.stock !== '') {
+                const stock = document.createElement('div'); stock.className = 'stock';
+                stock.textContent = 'Stock: ' + p.stock;
+                if (p.low_stock) { stock.style.color = '#dc3545'; stock.style.fontWeight = '700'; }
+                div.appendChild(stock);
+            }
             grid.appendChild(div);
         });
     })

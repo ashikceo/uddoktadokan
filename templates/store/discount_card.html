@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if page_settings.discount_heading %}{{ page_settings.discount_heading }} - {{ site_name }}{% else %}Discount Card - {{ site_name }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="main-container col2-left-layout">
+  <div class="container">
+    <div class="page-title"><h2>{% if page_settings.discount_heading %}{{ page_settings.discount_heading }}{% else %}Discount Card{% endif %}</h2></div>
+    <div class="row">
+      <div class="col-main col-sm-12 col-xs-12">
+        <div class="my-account">
+          {% for item in contents %}
+          <div style="padding:30px; background:#fff; border:1px solid #eee; border-radius:8px; margin-bottom:20px;">
+            {% if item.title %}
+            <h3 style="color:#e74847; margin-bottom:20px;">{{ item.title }}</h3>
+            {% endif %}
+            <div style="line-height:1.8; color:#555; font-size:15px;">{{ item.content|safe }}</div>
+          </div>
+          {% empty %}
+          <div style="padding:30px; background:#fff; border:1px solid #eee; border-radius:8px;">
+            <p style="color:#888; text-align:center;">No discount card content available yet.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

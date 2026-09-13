@@ -1,10 +1,15 @@
 import json
 import re
 from django.conf import settings
+from django.core.cache import cache
 from django.db import models
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.text import slugify
+
+from .domain_utils import host_key
 
 
 def _unique_slug(klass, slug_field, slug):
@@ -14,6 +19,19 @@ def _unique_slug(klass, slug_field, slug):
         suffix_str = f'-{suffix}'
         slug = f'{base_slug[:50-len(suffix_str)]}{suffix_str}'
         suffix += 1
+    return slug
+
+
+def generate_partner_slug(text):
+    """Generate partner slug: take text before 'Upazila', lowercase, remove hyphens, append 'uddoktardokan'."""
+    import re
+    text = text.strip()
+    match = re.split(r'-?[Uu]pazila', text, maxsplit=1)
+    base = match[0].replace('-', '').replace(' ', '').replace(',', '').replace('.', '').replace("'", '')
+    if not base:
+        base = text.replace('-', '').replace(' ', '').replace(',', '').replace('.', '').replace("'", '')
+    base = base.lower()
+    slug = f'{base}uddoktardokan'
     return slug
 
 
@@ -41,25 +59,65 @@ class Address(models.Model):
         return ', '.join(p for p in parts if p) or f'Address #{self.id}'
 
 
+def _sibling_unique_slug(parent_id, base_slug):
+    """Generate a slug that is unique among the category's siblings only."""
+    base = base_slug[:60] or 'category'
+    slug = base
+    n = 1
+    while Category.objects.filter(parent_id=parent_id, slug=slug).exists():
+        n += 1
+        slug = f'{base[:55]}-{n}'
+    return slug
+
+
 class Category(models.Model):
     name = models.CharField(max_length=200)
-    slug = models.SlugField(unique=True, blank=True)
+    slug = models.SlugField(max_length=200, blank=True)
     image = models.ImageField(upload_to='categories/', blank=True, null=True)
+    icon = models.CharField(max_length=100, blank=True, help_text='Optional icon class (e.g. "fa fa-mobile")')
+    description = models.TextField(blank=True, help_text='Short description shown on category pages')
     parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+    is_active = models.BooleanField(default=True, verbose_name='Active', help_text='Inactive categories are hidden from menus')
+    sort_order = models.PositiveIntegerField(default=0, verbose_name='Sort order')
     meta_title = models.CharField(max_length=120, blank=True, help_text='SEO title (overrides category name)')
     meta_description = models.TextField(max_length=320, blank=True, help_text='Meta description for search results')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = 'Categories'
-        ordering = ['name']
+        ordering = ['sort_order', 'name']
+        unique_together = ('parent', 'slug')
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = _unique_slug(Category, 'slug', slugify(self.name))
+            self.slug = _sibling_unique_slug(self.parent_id, slugify(self.name))
         super().save(*args, **kwargs)
 
+    def slug_path(self):
+        """List of slugs from root to this category (excludes trailing empty)."""
+        slugs = []
+        node = self
+        while node is not None:
+            slugs.insert(0, node.slug)
+            node = node.parent
+        return slugs
+
+    def get_absolute_url(self):
+        return '/category/' + '/'.join(self.slug_path()) + '/'
+
+    def get_path_labels(self):
+        """List of (name, url) from root to this category for breadcrumbs."""
+        items = []
+        node = self
+        while node is not None:
+            items.insert(0, (node.name, node.get_absolute_url()))
+            node = node.parent
+        return items
+
     def __str__(self):
-        return self.name
+        prefix = f'{self.parent.name} / ' if self.parent_id else ''
+        return f'{prefix}{self.name}'
 
 
 THEME_PRESETS = [
@@ -87,6 +145,7 @@ class Partner(models.Model):
     banner = models.ImageField(upload_to='partner_banners/', blank=True, null=True)
     description = models.TextField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
+    domain_name = models.CharField(max_length=200, blank=True, verbose_name='Domain', help_text='Partner website domain (e.g. example.com)')
     address = models.CharField(max_length=300, blank=True)
     address_street = models.CharField(max_length=300, blank=True, verbose_name='Street / Village / House / Flat')
     address_division = models.CharField(max_length=100, blank=True, verbose_name='Division')
@@ -113,7 +172,9 @@ class Partner(models.Model):
     theme = models.CharField(max_length=30, choices=THEME_CHOICES, blank=True, default='', verbose_name='Store Theme', help_text='Override site theme for this store. Leave empty to use site default.')
     has_medicine_access = models.BooleanField(default=False, verbose_name='Medicine Catalog Access', help_text='Grant access to the global medicine product catalog for POS')
     medicine_pos_enabled = models.BooleanField(default=False, verbose_name='Medicine POS Enabled', help_text='Master switch — enables Medicine POS with subscription tracking')
+    medicine_inventory_enabled = models.BooleanField(default=True, verbose_name='Medicine Inventory Enabled', help_text='When ON, POS tracks stock and deducts inventory. When OFF, POS works without stock tracking.')
     blocked = models.BooleanField(default=False, verbose_name='Block deletion', help_text='When blocked, this partner cannot be deleted from admin (prevents cascade delete through related medicine models)')
+    custom_redirect_url = models.URLField(max_length=500, blank=True, verbose_name='Custom Logo Redirect URL', help_text='When someone clicks your store logo, they will be redirected to this URL. Leave blank to redirect to the homepage.')
     created = models.DateTimeField(default=timezone.now)
     updated = models.DateTimeField(auto_now=True)
 
@@ -126,11 +187,122 @@ class Partner(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = _unique_slug(Partner, 'slug', slugify(self.name))
+            if self.address_upazila:
+                base = self.address_upazila.strip().replace(' ', '').replace('-', '').replace(',', '').replace('.', '').replace("'", '').lower()
+                raw_slug = f'{base}uddoktardokan'
+            else:
+                raw_slug = generate_partner_slug(self.name)
+            self.slug = _unique_slug(Partner, 'slug', raw_slug)
+        if not self.domain_name:
+            self.domain_name = self.slug
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
+
+
+class CustomDomain(models.Model):
+    """A custom domain a shop owner (Partner) connects to their store.
+
+    A Partner is simultaneously a Seller, Partner or Dealer (role flags on the
+    same model). The domain lifecycle is fully automated:
+
+        1. seller/partner/dealer adds a domain        -> status=pending
+        2. background DNS check confirms the record   -> dns_status=connected
+        3. background certbot/ACME issues a certificate -> ssl_status=active
+        4. routing middleware serves the store on the domain -> is_active=True
+
+    Only one domain per owner may be ACTIVE + PRIMARY at a time; activating a
+    new domain automatically demotes the previous one.
+    """
+
+    ACCOUNT_TYPE_CHOICES = [
+        ('SELLER', 'Seller'),
+        ('PARTNER', 'Partner'),
+        ('DEALER', 'Dealer'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('dns_verified', 'DNS Verified'),
+        ('ssl_provisioning', 'SSL Provisioning'),
+        ('active', 'Active'),
+        ('failed', 'Failed'),
+        ('disconnected', 'Disconnected'),
+    ]
+    DNS_STATUS_CHOICES = [
+        ('pending', 'Waiting for DNS'),
+        ('connected', 'Connected'),
+        ('failed', 'Failed'),
+    ]
+    SSL_STATUS_CHOICES = [
+        ('waiting', 'Waiting'),
+        ('provisioning', 'Provisioning'),
+        ('active', 'Active'),
+        ('failed', 'Failed'),
+        ('not_configured', 'Not Configured'),
+    ]
+
+    owner = models.ForeignKey(Partner, on_delete=models.CASCADE, related_name='custom_domains', verbose_name='Store / Account')
+    domain = models.CharField(max_length=253, verbose_name='Custom Domain', help_text='e.g. mystore.com')
+    normalized_domain = models.CharField(max_length=253, unique=True, db_index=True, editable=False)
+    account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPE_CHOICES, blank=True, default='PARTNER')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    dns_status = models.CharField(max_length=20, choices=DNS_STATUS_CHOICES, default='pending')
+    ssl_status = models.CharField(max_length=20, choices=SSL_STATUS_CHOICES, default='waiting')
+    is_active = models.BooleanField(default=False, verbose_name='Active', help_text='When ON, requests to this domain are routed to the connected store.')
+    is_primary = models.BooleanField(default=False, verbose_name='Primary domain')
+    verification_method = models.CharField(max_length=20, default='dns', editable=False)
+    dns_verified_at = models.DateTimeField(null=True, blank=True)
+    ssl_issued_at = models.DateTimeField(null=True, blank=True)
+    ssl_expires_at = models.DateTimeField(null=True, blank=True)
+    last_dns_check = models.DateTimeField(null=True, blank=True)
+    last_ssl_check = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_primary', '-created_at']
+        verbose_name = 'Custom Domain'
+        verbose_name_plural = 'Custom Domains'
+
+    def __str__(self):
+        return self.domain
+
+    def save(self, *args, **kwargs):
+        if self.normalized_domain:
+            self.normalized_domain = self.normalized_domain.strip().lower()
+        # Only one primary domain per store; activating one retires the others.
+        if self.is_primary or self.is_active:
+            CustomDomain.objects.filter(owner_id=self.owner_id).exclude(pk=self.pk).update(
+                is_primary=False, is_active=False,
+            )
+        if self.status != 'active':
+            self.is_active = False
+        super().save(*args, **kwargs)
+
+    def retire(self):
+        """Disconnect the domain without deleting history."""
+        self.is_active = False
+        self.is_primary = False
+        self.status = 'disconnected'
+        self.ssl_status = 'not_configured'
+        self.save(update_fields=['is_active', 'is_primary', 'status', 'ssl_status', 'updated_at'])
+
+
+def _invalidate_custom_domain_cache(domain):
+    key = f'custom_domain:map:{host_key(domain)}'
+    cache.delete(key)
+
+
+@receiver(post_save, sender=CustomDomain)
+def _custom_domain_saved(sender, instance, **kwargs):
+    _invalidate_custom_domain_cache(instance.normalized_domain)
+
+
+@receiver(post_delete, sender=CustomDomain)
+def _custom_domain_deleted(sender, instance, **kwargs):
+    _invalidate_custom_domain_cache(instance.normalized_domain)
 
 
 class Product(models.Model):
@@ -614,10 +786,26 @@ class SiteLogo(models.Model):
     favicon = models.ImageField(upload_to='site_favicon/', blank=True, null=True)
     site_name = models.CharField(max_length=200, default='Uddoktar Dokan')
     site_tagline = models.CharField(max_length=200, default='উদ্যোক্তার বাজার', blank=True)
+    search_placeholder = models.CharField(max_length=300, default='পণ্যের নাম, কোড, ক্যাটাগরি ও সাব-ক্যাটাগরি লিখে সার্চ করুন', help_text='Placeholder text for the search bar')
     site_theme = models.CharField(max_length=30, choices=THEME_CHOICES, blank=True, default='', help_text='Site-wide theme (applies to homepage and all partner stores)')
     site_primary_color = models.CharField(max_length=20, blank=True, default='#e74847', help_text='Site-wide primary color (hex)')
     site_secondary_color = models.CharField(max_length=20, blank=True, default='#333333', help_text='Site-wide secondary color (hex)')
     partner_delivery_enabled = models.BooleanField(default=True, verbose_name='Allow Partner/Dealer address selection in checkout')
+    site_phone = models.CharField(max_length=30, blank=True, default='01910422200', help_text='Contact number shown in the footer')
+    site_whatsapp = models.CharField(max_length=30, blank=True, default='8801910422200', help_text='WhatsApp number (country code + number, no +) used in the floating bar & footer')
+    site_email = models.EmailField(max_length=200, blank=True, default='', help_text='Contact email shown in the footer (optional)')
+    site_address_bd = models.CharField(max_length=300, blank=True, default='144/G,Zigatola(Near BGB Pilkhana)Mirpur-1,Dhaka:1206', help_text='Local (Bangladesh) address shown in the footer')
+    site_address_us = models.CharField(max_length=300, blank=True, default='Delwar,USA', help_text='Foreign address shown in the footer (optional)')
+    footer_about = models.TextField(blank=True, default='', help_text='Short about text shown under the footer logo')
+    newsletter_title = models.CharField(max_length=150, blank=True, default='Sign up for newsletter', help_text='Newsletter section title')
+    newsletter_subtitle = models.CharField(max_length=250, blank=True, default='Get the latest deals and special offers', help_text='Newsletter section subtitle')
+    footer_copyright = models.CharField(max_length=300, blank=True, default='Copyright © 2025-2026 Uddoktar Dokan. All Rights Reserved.', help_text='Copyright line shown at the bottom of the footer')
+    show_newsletter_section = models.BooleanField(default=True, verbose_name='Show newsletter section')
+    show_contact_section = models.BooleanField(default=True, verbose_name='Show contact info column')
+    show_follow_us_section = models.BooleanField(default=True, verbose_name='Show follow-us (social) column')
+    show_policy_buttons = models.BooleanField(default=True, verbose_name='Show policy buttons (Terms, Return & Refund, Company Policy)')
+    show_copyright_bar = models.BooleanField(default=True, verbose_name='Show copyright bottom bar')
+    show_payment_icons = models.BooleanField(default=True, verbose_name='Show payment card icons')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
@@ -632,16 +820,50 @@ class SiteLogo(models.Model):
             existing.favicon = self.favicon or existing.favicon
             existing.site_name = self.site_name
             existing.site_tagline = self.site_tagline
+            existing.search_placeholder = self.search_placeholder
             existing.site_theme = self.site_theme
             existing.site_primary_color = self.site_primary_color
             existing.site_secondary_color = self.site_secondary_color
             existing.partner_delivery_enabled = self.partner_delivery_enabled
+            existing.site_phone = self.site_phone
+            existing.site_whatsapp = self.site_whatsapp
+            existing.site_email = self.site_email
+            existing.site_address_bd = self.site_address_bd
+            existing.site_address_us = self.site_address_us
+            existing.footer_about = self.footer_about
+            existing.newsletter_title = self.newsletter_title
+            existing.newsletter_subtitle = self.newsletter_subtitle
+            existing.footer_copyright = self.footer_copyright
+            existing.show_newsletter_section = self.show_newsletter_section
+            existing.show_contact_section = self.show_contact_section
+            existing.show_follow_us_section = self.show_follow_us_section
+            existing.show_policy_buttons = self.show_policy_buttons
+            existing.show_copyright_bar = self.show_copyright_bar
+            existing.show_payment_icons = self.show_payment_icons
             existing.save()
             return
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.site_name or 'Site Settings'
+
+
+class NewsTicker(models.Model):
+    TYPE_CHOICES = [
+        ('ticker', 'News Ticker'),
+        ('search_placeholder', 'Search Placeholder'),
+    ]
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES, default='ticker')
+    text = models.TextField(help_text='News ticker text. You can use emoji like 🚀 🎁 📦 📢')
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0, help_text='Lower numbers appear first')
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return f'[{self.get_type_display()}] {self.text[:50]}'
 
 
 class ProductReview(models.Model):
@@ -764,16 +986,191 @@ class SideBanner(models.Model):
         return self.title or f'Side Banner #{self.id}'
 
 
+SECTION_CHOICES = [
+    ('', 'All Sections (default)'),
+    ('home_all', 'Homepage — All Over Available Product'),
+    ('home_partner', 'Homepage — All Partner Product'),
+    ('home_hot', 'Homepage — All Partner Hot Products'),
+    ('shop', 'Shop Page'),
+    ('partner', 'Partner Store'),
+]
+
+
+class ShopSidebarSlider(models.Model):
+    image = models.ImageField(upload_to='shop_sidebar_sliders/')
+    title = models.CharField(max_length=200, blank=True, help_text='Optional title overlay')
+    link_url = models.CharField(max_length=500, blank=True, help_text='Link when clicked')
+    section = models.CharField(max_length=30, choices=SECTION_CHOICES, blank=True, default='', help_text='Which section this slider appears in. Leave blank for all sections.')
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Shop Sidebar Slider'
+        verbose_name_plural = 'Shop Sidebar Sliders'
+
+    def __str__(self):
+        label = self.get_section_display() if self.section else 'All'
+        return f'{self.title or f"Sidebar Slider #{self.id}"} [{label}]'
+
+
+class ShopBanner(models.Model):
+    image = models.ImageField(upload_to='shop_banners/')
+    title = models.CharField(max_length=200, blank=True)
+    link_url = models.CharField(max_length=500, blank=True)
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Shop Banner'
+        verbose_name_plural = 'Shop Banners'
+
+    def __str__(self):
+        return self.title or f'Shop Banner #{self.id}'
+
+
+class ShopSidebarBottomBanner(models.Model):
+    image = models.ImageField(upload_to='shop_sidebar_bottom/')
+    title = models.CharField(max_length=200, blank=True)
+    link_url = models.CharField(max_length=500, blank=True)
+    section = models.CharField(max_length=30, choices=SECTION_CHOICES, blank=True, default='', help_text='Which section this banner appears in. Leave blank for all sections.')
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Shop Sidebar Bottom Banner'
+        verbose_name_plural = 'Shop Sidebar Bottom Banners'
+
+    def __str__(self):
+        label = self.get_section_display() if self.section else 'All'
+        return f'{self.title or f"Sidebar Bottom Banner #{self.id}"} [{label}]'
+
+
+SLIDER_AREA_CHOICES = [
+    ('banner', 'Top Banner (Shop page)'),
+    ('sidebar', 'Sidebar Slider (Shop page)'),
+    ('sidebar_bottom', 'Sidebar Bottom Banner (Shop page)'),
+]
+
+
+class ShopSliderConfig(models.Model):
+    """Per-area settings for the Shop page sliders (time, size, hide/show)."""
+    area = models.CharField(max_length=30, choices=SLIDER_AREA_CHOICES, unique=True)
+    autoplay_time = models.PositiveIntegerField(default=3, help_text='Seconds each slide stays on screen (slide changing time)')
+    height = models.PositiveIntegerField(default=250, help_text='Slider container height in pixels')
+    width = models.PositiveIntegerField(default=0, help_text='Slider container width in pixels. Leave 0 for full width (100%).')
+    show_title = models.BooleanField(default=True, help_text='Show the title overlay on each slide')
+    is_active = models.BooleanField(default=True, help_text='Uncheck to hide this slider on the page')
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Shop Slider Setting'
+        verbose_name_plural = 'Shop Slider Settings'
+
+    def __str__(self):
+        return f'{self.get_area_display()} — {self.autoplay_time}s | {self.height}px | {self.width or "full"}px | {"SHOW" if self.is_active else "HIDDEN"}'
+
+    @classmethod
+    def defaults(cls):
+        return {
+            'banner': dict(autoplay_time=3, height=200, width=0, show_title=True),
+            'sidebar': dict(autoplay_time=3, height=250, width=0, show_title=True),
+            'sidebar_bottom': dict(autoplay_time=3, height=250, width=0, show_title=True),
+        }
+
+    @classmethod
+    def as_map(cls):
+        """Dict {area: config} with a safe fallback row for any missing area."""
+        missing = {a: False for a in [c[0] for c in SLIDER_AREA_CHOICES]}
+        for c in cls.objects.all():
+            missing[c.area] = c
+        out = {}
+        for area, defaults in cls.defaults().items():
+            obj = missing.get(area) or cls(area=area, **defaults)
+            out[area] = obj
+        return out
+
+
 class SocialMediaLink(models.Model):
     name = models.CharField(max_length=100)
     url = models.URLField(max_length=500)
-    icon_class = models.CharField(max_length=100, help_text="Font Awesome class e.g. 'fa fa-facebook-square'")
+    icon_class = models.CharField(
+        max_length=100,
+        choices=[
+            ('fab fa-facebook-f', 'Facebook (f)'),
+            ('fab fa-facebook', 'Facebook'),
+            ('fab fa-square-facebook', 'Facebook Square'),
+            ('fab fa-x-twitter', 'X / Twitter (bird)'),
+            ('fab fa-twitter', 'Twitter (old bird)'),
+            ('fab fa-instagram', 'Instagram'),
+            ('fab fa-youtube', 'YouTube'),
+            ('fab fa-whatsapp', 'WhatsApp'),
+            ('fab fa-linkedin-in', 'LinkedIn'),
+            ('fab fa-telegram', 'Telegram'),
+            ('fab fa-pinterest-p', 'Pinterest'),
+            ('fab fa-tiktok', 'TikTok'),
+            ('fab fa-threads', 'Threads'),
+            ('fab fa-snapchat', 'Snapchat'),
+            ('fa fa-phone', 'Phone / Call'),
+            ('fa fa-envelope', 'Email'),
+        ],
+        default='fab fa-facebook-f',
+        help_text="Font Awesome icon class (brand icons start with 'fab', solid icons with 'fa')",
+    )
+    color = models.CharField(
+        max_length=20,
+        choices=[
+            ('#25D366', 'WhatsApp Green'),
+            ('#1877F2', 'Facebook Blue'),
+            ('#FF0000', 'YouTube Red'),
+            ('#E4405F', 'Instagram Pink'),
+            ('#000000', 'X / Black'),
+            ('#1DA1F2', 'Twitter Blue'),
+            ('#0A66C2', 'LinkedIn Blue'),
+            ('#0088CC', 'Telegram Blue'),
+            ('#CB2027', 'Pinterest Red'),
+            ('#010101', 'TikTok Black'),
+            ('#28a745', 'Phone / Call Green'),
+            ('#0ABF53', 'Generic Green'),
+            ('#6f42c1', 'Generic Purple'),
+            ('#3d73dd', 'Generic Blue'),
+        ],
+        default='#1877F2',
+        help_text="Background color for the floating bar icon (hex).",
+    )
     order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['order']
         verbose_name_plural = 'Social Media Links'
+
+    def __str__(self):
+        return self.name
+
+
+class PaymentIcon(models.Model):
+    name = models.CharField(max_length=100)
+    image = models.ImageField(upload_to='payment_icons/', blank=True, null=True, help_text='Upload a payment card/brand logo')
+    image_url = models.URLField(max_length=500, blank=True, default='', help_text='Or enter an external image URL (e.g. CDN) — used when no image is uploaded')
+    link = models.URLField(max_length=500, blank=True, default='', verbose_name='Link (optional)')
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True, help_text='Show this icon in the footer')
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Payment Icon'
+        verbose_name_plural = 'Payment Icons'
+
+    @property
+    def display_url(self):
+        return self.image.url if self.image else (self.image_url or '')
 
     def __str__(self):
         return self.name
@@ -877,12 +1274,21 @@ class NavMenu(models.Model):
         ('named_url', 'Named URL'),
         ('path', 'Path'),
     ]
+    KIND_CHOICES = [
+        ('link', 'Link'),
+        ('categories', 'Categories menu'),
+        ('account', 'Login / Signup / Dashboard'),
+    ]
     title = models.CharField(max_length=100)
-    url = models.CharField(max_length=200, help_text="Named URL (e.g. 'home', 'shop_grid') or path (e.g. '/shop/')")
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='link', help_text="'Categories menu' renders the categories button + mega menu. 'Login / Signup / Dashboard' renders the account button (login/signup when logged out, dashboard when logged in).")
+    url = models.CharField(max_length=200, blank=True, help_text="Named URL (e.g. 'home', 'shop_grid') or path (e.g. '/shop/'). Not used for Categories / Account buttons.")
     url_type = models.CharField(max_length=20, choices=URL_TYPE_CHOICES, default='named_url')
+    open_new_tab = models.BooleanField(default=False, verbose_name='Open in new tab')
     match_startswith = models.BooleanField(default=False, help_text="Check if request path starts with this URL (for Dashboard sub-pages)")
     order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    show_desktop = models.BooleanField(default=True, verbose_name='Show in desktop menu')
+    show_mobile = models.BooleanField(default=True, verbose_name='Show in mobile menu')
     login_required = models.BooleanField(default=False, help_text="Only show to logged-in users")
     logout_required = models.BooleanField(default=False, help_text="Only show to logged-out users")
 
@@ -892,6 +1298,18 @@ class NavMenu(models.Model):
 
     def __str__(self):
         return self.title
+
+    def get_url(self):
+        """Return a safe, renderable URL for this item."""
+        from django.urls import reverse, NoReverseMatch
+        if self.kind == 'account':
+            return '#'
+        if self.url_type == 'named_url':
+            try:
+                return reverse(self.url)
+            except (NoReverseMatch, TypeError):
+                return '#'
+        return self.url or '#'
 
 
 class CustomOrder(models.Model):
@@ -1546,8 +1964,11 @@ class MedicineProduct(models.Model):
     generic_name = models.CharField(max_length=300, blank=True, verbose_name='Generic Name', help_text='Active ingredient / generic name')
     strength = models.CharField(max_length=100, blank=True, verbose_name='Strength', help_text='e.g. "500 mg"')
     dosage_form = models.CharField(max_length=100, blank=True, verbose_name='Dosage Form', help_text='e.g. "Tablet", "Syrup"')
+    manufacturer = models.CharField(max_length=300, blank=True, verbose_name='Manufacturer', help_text='Pharmaceutical company name')
+    pack_size = models.CharField(max_length=200, blank=True, verbose_name='Pack Size', help_text='e.g. 30s pack, 5s pack, 1s pack')
     sku = models.CharField(max_length=50, unique=True, blank=True, verbose_name='SKU')
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, help_text='Unit / piece price')
+    pack_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Pack / box price (total)')
     stock = models.IntegerField(default=0)
     image = models.ImageField(upload_to='medicine_products/', blank=True, null=True)
     description = models.TextField(blank=True)
@@ -1668,6 +2089,14 @@ class MedicineSubscription(models.Model):
     def is_accessible(self):
         return self.status in ('trial', 'active')
 
+    @property
+    def trial_days_remaining(self):
+        if self.status == 'trial' and self.trial_ends_at:
+            return max(0, (self.trial_ends_at - timezone.now()).days)
+        if self.status == 'active' and self.current_period_end:
+            return max(0, (self.current_period_end - timezone.now()).days)
+        return 0
+
 
 class SubscriptionPackage(models.Model):
     name = models.CharField(max_length=100, help_text='e.g. "Monthly", "Quarterly", "Yearly"')
@@ -1703,3 +2132,199 @@ class WalletRechargeInstruction(models.Model):
 
     def __str__(self):
         return self.title
+
+
+# ─── Medicine Inventory ───
+
+class MedicineInventory(models.Model):
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE, related_name='medicine_inventory')
+    product = models.ForeignKey(MedicineProduct, on_delete=models.CASCADE, related_name='inventory_entries')
+    stock = models.IntegerField(default=0, help_text='Current stock count for this partner')
+    low_stock_threshold = models.IntegerField(default=5, help_text='Alert when stock falls below this number')
+    is_active = models.BooleanField(default=True, help_text='Show this product in Medicine POS')
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('partner', 'product')
+        verbose_name = 'Medicine Inventory'
+        verbose_name_plural = 'Medicine Inventories'
+        ordering = ['product__brand_name']
+
+    def __str__(self):
+        return f'{self.partner.name} — {self.product.brand_name} ({self.stock})'
+
+    @property
+    def is_low_stock(self):
+        return self.stock <= self.low_stock_threshold
+
+
+class MedicineInventoryLog(models.Model):
+    ADJUSTMENT_TYPES = [
+        ('sale', 'Sale'),
+        ('refund', 'Refund'),
+        ('stock_in', 'Stock In'),
+        ('stock_out', 'Stock Out'),
+        ('adjustment', 'Manual Adjustment'),
+        ('initial', 'Initial Stock'),
+    ]
+    inventory = models.ForeignKey(MedicineInventory, on_delete=models.CASCADE, related_name='logs')
+    adjustment_type = models.CharField(max_length=20, choices=ADJUSTMENT_TYPES)
+    quantity = models.IntegerField(help_text='Positive for in, negative for out')
+    balance_after = models.IntegerField(help_text='Stock count after this change')
+    reason = models.CharField(max_length=300, blank=True)
+    reference = models.CharField(max_length=200, blank=True, help_text='e.g. order number')
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Medicine Inventory Log'
+        verbose_name_plural = 'Medicine Inventory Logs'
+        ordering = ['-created']
+
+    def __str__(self):
+        return f'{self.adjustment_type}: {self.quantity:+d} — {self.inventory}'
+
+
+class DiscountCardContent(models.Model):
+    title = models.CharField(max_length=300, blank=True)
+    content = models.TextField(blank=True, help_text='Main body text/HTML for the discount card page')
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Discount Card Content'
+        verbose_name_plural = 'Discount Card Contents'
+        ordering = ['sort_order', '-created']
+
+    def __str__(self):
+        return self.title or f'Content #{self.pk}'
+
+
+class HomepageSettings(models.Model):
+    """Singleton — one page to control every homepage / page section: on-off, edit text, links."""
+
+    # ─── Homepage: B2B / B2C buttons ───
+    show_b2b_b2c_buttons = models.BooleanField(default=True, verbose_name='Show B2B / B2C buttons')
+    b2b_icon = models.CharField(max_length=60, default='fas fa-building', verbose_name='B2B icon (Font Awesome class)')
+    b2b_button_text = models.CharField(max_length=60, default='B2B Product', verbose_name='B2B button text')
+    b2b_url = models.CharField(max_length=300, default='/shop_grid/', blank=True, verbose_name='B2B button link', help_text='e.g. /shop_grid/ or a full URL')
+    b2c_icon = models.CharField(max_length=60, default='fas fa-shopping-cart', verbose_name='B2C icon (Font Awesome class)')
+    b2c_button_text = models.CharField(max_length=60, default='B2C Product', verbose_name='B2C button text')
+    b2c_url = models.CharField(max_length=300, default='/shop_grid/', blank=True, verbose_name='B2C button link', help_text='e.g. /shop_grid/ or a full URL')
+
+    # ─── Homepage: tabbed products (All Over Available Product) ───
+    show_tabbed_products = models.BooleanField(default=True, verbose_name='Show "All Over Available Product" section')
+    products_heading = models.CharField(max_length=200, default='All Over Available Product', verbose_name='Section heading')
+    tab_all_label = models.CharField(max_length=40, default='All', verbose_name='"All" tab label')
+    tab_new_label = models.CharField(max_length=40, default='New', verbose_name='"New" tab label')
+    tab_discounted_label = models.CharField(max_length=40, default='Discounted', verbose_name='"Discounted" tab label')
+    tab_hot_label = models.CharField(max_length=40, default='Hot Item', verbose_name='"Hot" tab label')
+
+    # ─── Homepage: random product sidebar ───
+    show_random_product = models.BooleanField(default=True, verbose_name='Show "Random Product List" sidebars')
+    random_list_heading = models.CharField(max_length=200, default='Random Product List', verbose_name='Sidebar heading')
+
+    # ─── Homepage: partner products ───
+    show_partner_products = models.BooleanField(default=True, verbose_name='Show "All Partner Product" section')
+    partner_products_heading = models.CharField(max_length=200, default='All Partner Product', verbose_name='Section heading')
+    show_partner_hot_products = models.BooleanField(default=True, verbose_name='Show "All Partner Hot Products" section')
+    partner_hot_products_heading = models.CharField(max_length=200, default='All Partner Hot Products', verbose_name='Section heading')
+
+    # ─── Homepage: blog marquee + video ───
+    show_blog_marquee = models.BooleanField(default=True, verbose_name='Show "New Arrival Product" blog marquee')
+    new_arrival_heading = models.CharField(max_length=200, default='New Arrival Product', verbose_name='Blog marquee heading')
+    show_videos = models.BooleanField(default=True, verbose_name='Show "Our Videos" section')
+    videos_heading = models.CharField(max_length=200, default='Our Videos', verbose_name='Video section heading')
+    home_video_embed = models.CharField(max_length=500, default='https://www.youtube.com/embed/q73R90FJZdQ?rel=0', blank=True, verbose_name='YouTube video embed URL', help_text='Embed URL from "Share -> Embed" (https://www.youtube.com/embed/...)')
+
+    # ─── Homepage: promo cards + brands ───
+    show_promo_cards = models.BooleanField(default=True, verbose_name='Show promo cards (Buy 2 items, Daily Sales, ...)')
+    show_brand_marquee = models.BooleanField(default=True, verbose_name='Show "Our Partner Brands" marquee')
+    brands_heading = models.CharField(max_length=200, default='Our Partner Brands', verbose_name='Brands marquee heading')
+
+    # ─── Homepage: HomeBanner strip ───
+    show_home_banner = models.BooleanField(default=False, verbose_name='Show home banner strip', help_text='Render the "Home Banner" images as a full-width strip above the promo cards. Manage images under Home Banner.')
+
+    # ─── Shop grid ───
+    shop_heading = models.CharField(max_length=200, default='ALL PRODUCTS', verbose_name='Shop page title')
+    show_shop_labels = models.BooleanField(default=True, verbose_name='Show the Labels filter list (All / New / Hot / Discounted)')
+    shop_label_all = models.CharField(max_length=40, default='All', verbose_name='Labels list "All" caption')
+    shop_label_new = models.CharField(max_length=40, default='New', verbose_name='Labels list "New" caption')
+    shop_label_hot = models.CharField(max_length=40, default='Hot', verbose_name='Labels list "Hot" caption')
+    shop_label_discounted = models.CharField(max_length=40, default='Discounted', verbose_name='Labels list "Discounted" caption')
+
+    # ─── Product detail page ───
+    show_share_buttons = models.BooleanField(default=True, verbose_name='Show social share buttons on product page')
+    shipping_delivery_title = models.CharField(max_length=100, default='Delivery', verbose_name='Delivery card title')
+    shipping_delivery_text = models.CharField(max_length=300, default='Nationwide delivery across Bangladesh. Delivered within 3-7 business days.', verbose_name='Delivery card text')
+    shipping_return_title = models.CharField(max_length=100, default='Return Policy', verbose_name='Return card title')
+    shipping_return_text = models.CharField(max_length=300, default='Return within 7 days for a full refund or exchange. Unused, original packaging.', verbose_name='Return card text')
+    shipping_payment_title = models.CharField(max_length=100, default='Payment', verbose_name='Payment card title')
+    shipping_payment_text = models.CharField(max_length=300, default='Cash on Delivery (COD) available for all orders within Bangladesh.', verbose_name='Payment card text')
+
+    # ─── Other page headings ───
+    contact_heading = models.CharField(max_length=200, default='Contact Us', verbose_name='Contact page title')
+    discount_heading = models.CharField(max_length=200, default='Discount Card', verbose_name='Discount Card page title')
+
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Homepage & Page Settings'
+        verbose_name_plural = 'Homepage & Page Settings'
+
+    def __str__(self):
+        return 'Homepage & Page Settings'
+
+    @classmethod
+    def load(cls):
+        obj = cls._default_manager.first()
+        if obj:
+            return obj
+        return cls()
+
+    def save(self, *args, **kwargs):
+        if self.pk is None and HomepageSettings.objects.exists():
+            existing = HomepageSettings.objects.first()
+            for field in self._meta.fields:
+                if field.name in ('id', 'created', 'updated'):
+                    continue
+                setattr(existing, field.name, getattr(self, field.name))
+            existing.save()
+            return
+        super().save(*args, **kwargs)
+
+
+class PromoCard(models.Model):
+    title = models.CharField(max_length=100, verbose_name='Card title')
+    description = models.CharField(max_length=200, blank=True, verbose_name='Card subtitle')
+    icon = models.CharField(max_length=60, default='fa fa-gift', verbose_name='Icon (Font Awesome class)')
+    link = models.CharField(max_length=300, blank=True, verbose_name='Link (optional)', help_text='e.g. /shop_grid/ or a full URL')
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Promo Card'
+        verbose_name_plural = 'Promo Cards'
+
+    def __str__(self):
+        return self.title
+
+
+class BrandLogo(models.Model):
+    name = models.CharField(max_length=100, verbose_name='Brand name')
+    image = models.ImageField(upload_to='brands/', verbose_name='Brand logo image')
+    link = models.CharField(max_length=300, blank=True, verbose_name='Link (optional)', help_text='e.g. /shop_grid/ or a full URL')
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = 'Brand Logo'
+        verbose_name_plural = 'Brand Logos'
+
+    def __str__(self):
+        return self.name

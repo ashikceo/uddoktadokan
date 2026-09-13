@@ -5,10 +5,13 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path('shop/', views.shop_grid, name='shop_grid'),
+    path('shop_grid/', views.shop_grid, name='shop_grid'),
+    path('shop/', views.shop_grid, name='shop'),
+    path('category/<path:slug_path>/', views.category_page, name='category_page'),
     path('quick-view/<int:product_id>/', views.quick_view, name='quick_view'),
     path('product/<slug:slug>/', views.product_detail, name='product_detail'),
     path('partners/', views.partner_list, name='partner_list'),
+    path('union_list/', views.union_list, name='union_list'),
     path('dealers/', views.dealer_list, name='dealer_list'),
     path('sellers/', views.seller_list, name='seller_list'),
     path('partner/<slug:slug>/', views.partner_detail, name='partner_detail'),
@@ -48,6 +51,7 @@ urlpatterns = [
     path('checkout/', views.checkout, name='checkout'),
     path('order-confirmation/<int:order_id>/', views.order_confirmation, name='order_confirmation'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('dashboard/custom-domain/', views.dashboard_custom_domain, name='dashboard_custom_domain'),
     path('dashboard/become-seller/', views.dashboard_become_seller, name='dashboard_become_seller'),
     path('dashboard/products/', views.dashboard_products, name='dashboard_products'),
     path('dashboard/products/add/', views.dashboard_product_create, name='dashboard_product_create'),
@@ -111,7 +115,7 @@ urlpatterns = [
     path('payment/<int:order_id>/manual/', views.payment_manual, name='payment_manual'),
 
     # Sitemap & robots
-    path('sitemap.xml', TemplateView.as_view(template_name='sitemap.xml', content_type='application/xml'), name='sitemap'),
+    path('sitemap.xml', views.sitemap_view, name='sitemap'),
     path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain'), name='robots'),
 
     # Wallet
@@ -160,6 +164,11 @@ urlpatterns = [
     path('dashboard/medicine-pos/subscription/', views.medicine_subscription_page, name='medicine_subscription_page'),
     path('dashboard/medicine-pos/request-product/', views.medicine_request_product, name='medicine_request_product'),
     path('dashboard/medicine-pos/wallet-recharge/', views.wallet_recharge, name='wallet_recharge'),
+    path('dashboard/medicine-pos/inventory/toggle/', views.medicine_inventory_toggle, name='medicine_inventory_toggle'),
+    path('dashboard/medicine-pos/inventory/', views.medicine_inventory_list, name='medicine_inventory_list'),
+    path('dashboard/medicine-pos/inventory/adjust/<int:pk>/', views.medicine_inventory_adjust, name='medicine_inventory_adjust'),
+    path('dashboard/medicine-pos/inventory/log/', views.medicine_inventory_log, name='medicine_inventory_log'),
+    path('dashboard/medicine-pos/inventory/bulk/', views.medicine_inventory_bulk_update, name='medicine_inventory_bulk_update'),
 
     # Feature 4: Notifications
     path('dashboard/notifications/', views.dashboard_notifications, name='dashboard_notifications'),
@@ -202,4 +211,19 @@ urlpatterns = [
 
     # API
     path('api/', include('store.api_urls')),
+
+    # Live site URL compatibility aliases
+    path('vandor_list_all/', RedirectView.as_view(pattern_name='partner_list', permanent=True)),
+    path('dealer_list/', RedirectView.as_view(pattern_name='dealer_list', permanent=True)),
+    path('selear_list/', RedirectView.as_view(pattern_name='seller_list', permanent=True)),
+    path('seller_list/', RedirectView.as_view(pattern_name='seller_list', permanent=True)),
+    path('openuser_registration/', RedirectView.as_view(pattern_name='register', permanent=True)),
+    path('search/', views.search_view, name='search'),
+    path('subscribe/', views.newsletter_subscribe, name='newsletter_subscribe'),
+    path('Health/Discount/Card/', views.discount_card, name='discount_card'),
+    path('manu_product_list/', views.manufacturer_products, name='manufacturer_products'),
+    path('admin/upload-image/', views.admin_upload_image, name='admin_upload_image'),
+    path('terms_and_conditions/', views.site_page, {'slug': 'terms-conditions', 'fallback_template': 'store/terms_and_conditions.html'}, name='terms_and_conditions'),
+    path('return_refund/', views.site_page, {'slug': 'return-refund-policy', 'fallback_template': 'store/return_refund.html'}, name='return_refund'),
+    path('company_policy/', views.site_page, {'slug': 'company-policy', 'fallback_template': 'store/company_policy.html'}, name='company_policy'),
 ]

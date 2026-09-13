@@ -1,0 +1,12 @@
+{% load qs %}
+<li>
+  <a href="{{ cat.url }}">{{ cat.name }} {% if cat.product_count %}<span class="cat-acc-count">({{ cat.product_count }})</span>{% endif %}</a>
+  {% if cat.children %}
+  <button class="cat-acc-t" type="button">+</button>
+  <ul class="cat-acc-sub">
+    {% for child in cat.children %}
+    {% include 'store/category_accordion_mobile.html' with cat=child %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+</li>

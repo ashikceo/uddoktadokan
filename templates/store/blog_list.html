@@ -1,49 +1,66 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Blog - Uddoktar Dokan{% endblock %}
+{% block title %}Blog - {{ site_name }}{% endblock %}
 
 {% block content %}
-<div class="container page-content">
-    <div class="breadcrumb">
-        <a href="{% url 'home' %}">Home</a> / <span>Blog</span>
-    </div>
-    <div class="page-header"><h1>Blog</h1></div>
-    <div class="blog-grid">
-        {% for post in posts %}
-        <div class="blog-card">
-            <div class="blog-image">
-                <a href="{% url 'blog_detail' post.slug %}">
-                    {% if post.image %}
-                    <img src="{{ post.image.url }}" alt="{{ post.title }}">
-                    {% else %}
-                    <img src="/static/img/placeholder_300x200.png" alt="{{ post.title }}">
-                    {% endif %}
-                </a>
+<div class="main-container col2-left-layout">
+  <div class="container">
+    <div class="page-title"><h2>Blog</h2></div>
+    <div class="blog-posts-area">
+      {% for post in posts %}
+      <article class="entry">
+        <div class="row">
+          <div class="col-sm-5 col-lg-4">
+            <div class="entry-thumb">
+              <a href="{% url 'blog_detail' post.slug %}">
+                <figure>
+                  {% if post.image %}
+                  <img style="height:200px;width:100%;object-fit:cover;" src="{{ post.image.url }}" alt="{{ post.title }}">
+                  {% else %}
+                  <img style="height:200px;width:100%;object-fit:cover;" src="https://via.placeholder.com/400x200?text=Blog" alt="{{ post.title }}">
+                  {% endif %}
+                </figure>
+              </a>
             </div>
-            <div class="blog-info">
-                <h4><a href="{% url 'blog_detail' post.slug %}">{{ post.title }}</a></h4>
-                <div class="meta">{{ post.created|date:"M. j, Y, g:i A" }} {{ post.views }} {{ post.comments }}</div>
-                <p>{{ post.excerpt|default:post.content|truncatewords:25 }}</p>
-                <a href="{% url 'blog_detail' post.slug %}" style="color:#e74847;">Read More</a>
+          </div>
+          <div class="col-sm-7 col-lg-8">
+            <h3 class="entry-title"><a href="{% url 'blog_detail' post.slug %}">{{ post.title }}</a></h3>
+            <div class="entry-meta-data">
+              <span class="author"><i class="fa fa-user"></i> by: {{ post.author|default:"Admin" }}</span>
+              <span class="comment-count"><i class="fa fa-comment"></i> {{ post.comments }}</span>
+              <span class="date"><i class="fa fa-calendar"></i> {{ post.created|date:"M. j, Y" }}</span>
             </div>
+            <div class="entry-excerpt">{{ post.excerpt|default:post.content|truncatewords:25 }}</div>
+            <div class="entry-more">
+              <a href="{% url 'blog_detail' post.slug %}" class="button">Read more <i class="fa fa-angle-double-right"></i></a>
+            </div>
+          </div>
         </div>
-        {% empty %}
-        <p>No blog posts yet.</p>
-        {% endfor %}
+      </article>
+      {% empty %}
+      <p style="text-align:center; padding:40px 0; color:#888;">No blog posts yet.</p>
+      {% endfor %}
     </div>
     {% if page_obj.paginator.num_pages > 1 %}
-    <div class="pagination" style="text-align:center; margin-top:30px;">
+    <div style="text-align:center; margin-top:30px;">
+      <ul class="pagination" style="display:inline-flex; list-style:none; gap:4px; padding:0;">
         {% if page_obj.has_previous %}
-        <a href="?page=1" class="btn btn-outline" style="margin:0 3px;">&laquo;</a>
-        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline" style="margin:0 3px;">&lsaquo;</a>
+        <li><a href="?page={{ page_obj.previous_page_number }}" style="display:inline-block; padding:8px 14px; border:1px solid #ddd; border-radius:4px; color:#333; text-decoration:none;"><i class="fa fa-angle-left"></i></a></li>
         {% endif %}
-        <span style="padding:8px 15px; font-weight:600;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li><span style="display:inline-block; padding:8px 14px; background:#e74847; color:#fff; border-radius:4px;">{{ num }}</span></li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <li><a href="?page={{ num }}" style="display:inline-block; padding:8px 14px; border:1px solid #ddd; border-radius:4px; color:#333; text-decoration:none;">{{ num }}</a></li>
+        {% endif %}
+        {% endfor %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline" style="margin:0 3px;">&rsaquo;</a>
-        <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-outline" style="margin:0 3px;">&raquo;</a>
+        <li><a href="?page={{ page_obj.next_page_number }}" style="display:inline-block; padding:8px 14px; border:1px solid #ddd; border-radius:4px; color:#333; text-decoration:none;"><i class="fa fa-angle-right"></i></a></li>
         {% endif %}
+      </ul>
     </div>
     {% endif %}
+  </div>
 </div>
 {% endblock %}

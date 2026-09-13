@@ -1,0 +1,20 @@
+{% for cat in cats %}
+<li class="filter-cat">
+  <div class="filter-cat-row">
+    <a href="{{ cat.url }}"
+       class="filter-cat-link{% if current_category and cat.id == current_category.id %} is-active{% endif %}">
+      <span class="filter-cat-name">{{ cat.name }}</span>
+      {% if cat.product_count %}<span class="filter-cat-count">{{ cat.product_count }}</span>{% endif %}
+    </a>
+    {% if cat.children %}
+    <button type="button" class="filter-cat-toggle{% if current_category and cat.id in current_category_ids %} open{% endif %}"
+            aria-label="Toggle {{ cat.name }}"><i class="fa fa-angle-down"></i></button>
+    {% endif %}
+  </div>
+  {% if cat.children %}
+  <ul class="filter-cat-children{% if not current_category or cat.id not in current_category_ids %} closed{% endif %}">
+    {% include 'store/shop_sidebar_categories.html' with cats=cat.children %}
+  </ul>
+  {% endif %}
+</li>
+{% endfor %}

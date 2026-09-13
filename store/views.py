@@ -7,6 +7,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
@@ -17,7 +18,7 @@ from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Avg, Count, Sum, Max, F, ExpressionWrapper, DecimalField, OuterRef, Subquery
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -37,7 +38,33 @@ def validate_upload(file_obj):
     if file_obj.size > MAX_UPLOAD_SIZE:
         raise ValueError(f'File too large ({file_obj.size // 1024} KB). Maximum 5 MB.')
     return True
-from .models import Product, Category, Partner, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, PartnerBanner, PartnerNavMenu, Page, SideBanner, ProductColorVariant, ProductSizeVariant, ProductImage, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, SiteLogo, ManualPaymentMethod, PosOrder, PosOrderItem, PartnerSlider, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, PRESET_COLORS, PRESET_SIZES, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, WalletRechargeInstruction, SubscriptionPackage, Address, THEME_CHOICES
+from .models import Product, Category, Partner, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, PartnerBanner, PartnerNavMenu, Page, SideBanner, ShopSidebarSlider, ShopBanner, ShopSidebarBottomBanner, ProductColorVariant, ProductSizeVariant, ProductImage, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, SiteLogo, ManualPaymentMethod, PosOrder, PosOrderItem, PartnerSlider, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, PRESET_COLORS, PRESET_SIZES, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, WalletRechargeInstruction, SubscriptionPackage, Address, THEME_CHOICES, MedicineInventory, MedicineInventoryLog, DiscountCardContent, ShopSliderConfig, PromoCard, BrandLogo
+
+@user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='custom_admin:login')
+def admin_upload_image(request):
+    """Staff-only JSON endpoint used by the admin WYSIWYG editor to upload images."""
+    if request.method != 'POST' or 'file' not in request.FILES:
+        return JsonResponse({'error': 'Bad request'}, status=400)
+    file_obj = request.FILES['file']
+    try:
+        validate_upload(file_obj)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    try:
+        from PIL import Image as PILImage
+        PILImage.open(file_obj).verify()
+    except Exception:
+        return JsonResponse({'error': 'Uploaded file is not a valid image'}, status=400)
+    ext = file_obj.name.rsplit('.', 1)[-1].lower()
+    filename = f'pageimg_{timezone.now():%Y%m%d_%H%M%S}_{secrets.token_hex(4)}.{ext}'
+    try:
+        saved_name = default_storage.save(f'pages/images/{filename}', file_obj)
+    except Exception:
+        return JsonResponse({'error': 'Could not save the uploaded file'}, status=500)
+    location = default_storage.url(saved_name)
+    if not location.startswith(('http://', 'https://')):
+        location = request.build_absolute_uri(location)
+    return JsonResponse({'location': location})
 
 
 def home(request):
@@ -45,16 +72,21 @@ def home(request):
     products = base_qs[:16]
     partners = Partner.objects.all()[:20]
     latest_products = base_qs[:8]
-    blog_posts = BlogPost.objects.all()[:3]
+    blog_posts = BlogPost.objects.all()[:8]
     new_products = base_qs.filter(label='new')[:12]
     hot_products = base_qs.filter(label='hot')[:12]
     discounted_products = base_qs.filter(label='discounted')[:12]
     partner_products = base_qs.filter(partner__isnull=False)[:12]
     best_selling_products = base_qs.order_by('?')[:12]
-    categories = Category.objects.annotate(product_count=Count('products')).filter(product_count__gt=0)
+    categories = Category.objects.filter(parent=None).prefetch_related('children').annotate(product_count=Count('products')).order_by('name')
     sliders = Slider.objects.filter(is_active=True).order_by('order')
     home_banners = HomeBanner.objects.filter(is_active=True).order_by('order')
     side_banners = SideBanner.objects.filter(partner__isnull=True, is_active=True)[:2]
+
+    section_q = Q(section='') | Q(section__isnull=True)
+    sidebar_sliders = ShopSidebarSlider.objects.filter(is_active=True).order_by('order')
+    sidebar_bottom_banners = ShopSidebarBottomBanner.objects.filter(is_active=True).order_by('order')
+
     context = {
         'products': products,
         'partners': partners,
@@ -69,69 +101,176 @@ def home(request):
         'sliders': sliders,
         'home_banners': home_banners,
         'side_banners': side_banners,
+        'sidebar_sliders_1': sidebar_sliders.filter(section_q | Q(section='home_all')),
+        'sidebar_banners_1': sidebar_bottom_banners.filter(section_q | Q(section='home_all')),
+        'sidebar_sliders_2': sidebar_sliders.filter(section_q | Q(section='home_partner')),
+        'sidebar_banners_2': sidebar_bottom_banners.filter(section_q | Q(section='home_partner')),
+        'sidebar_sliders_3': sidebar_sliders.filter(section_q | Q(section='home_hot')),
+        'sidebar_banners_3': sidebar_bottom_banners.filter(section_q | Q(section='home_hot')),
+        'promo_cards': PromoCard.objects.filter(is_active=True).order_by('order'),
+        'brand_logos': BrandLogo.objects.filter(is_active=True).order_by('order'),
     }
     return render(request, 'store/home.html', context)
 
 
 def shop_grid(request):
-    products = Product.objects.filter(available=True, trashed=False, is_published=True).filter(Q(partner__isnull=True) | Q(partner__show_products=True)).annotate(review_count=Count('reviews'), review_avg=Avg('reviews__rating'))
-    categories = Category.objects.annotate(product_count=Count('products')).filter(product_count__gt=0)
-    category_slug = request.GET.get('category')
-    if category_slug:
-        products = products.filter(category__slug=category_slug)
-    search_query = request.GET.get('q')
-    if search_query:
-        products = products.filter(Q(name__icontains=search_query) | Q(description__icontains=search_query))
+    context = _shop_products(request)
+    if isinstance(context, HttpResponse):
+        return context
+    return render(request, 'store/shop_grid.html', context)
+
+
+SORT_MAP = {
+    'price_asc': 'price',
+    'price_desc': '-price',
+    'name_asc': 'name',
+    'name_desc': '-name',
+    'newest': '-created',
+    'popular': '-review_count',
+}
+
+
+def _shop_products(request, current_category=None):
+    from .category_tree import descendant_ids as _desc_ids, get_tree, _collect
+
+    base_qs = (
+        Product.objects
+        .filter(available=True, trashed=False, is_published=True)
+        .filter(Q(partner__isnull=True) | Q(partner__show_products=True))
+        .select_related('category', 'partner')
+        .prefetch_related('extra_images', 'color_variants', 'size_variants')
+        .annotate(review_count=Count('reviews'), review_avg=Avg('reviews__rating'))
+    )
+
+    # --- category filtering (from view arg or ?category= slug) ---
+    cat_obj = current_category
+    category_ids = None
+    current_category_ids = []
+    if cat_obj:
+        category_ids = _desc_ids(cat_obj.id)
+        base_qs = base_qs.filter(category_id__in=category_ids)
+    else:
+        cat_slug = request.GET.get('category')
+        if cat_slug:
+            by_id = {}
+            for root in get_tree():
+                _collect(root, by_id)
+            node = next((n for n in by_id.values() if n['slug'] == cat_slug), None)
+            if node:
+                category_ids = _desc_ids(node['id'])
+                base_qs = base_qs.filter(category_id__in=category_ids)
+                chain = []
+                cur = node
+                seen = set()
+                while cur is not None and cur['id'] not in seen:
+                    seen.add(cur['id'])
+                    chain.insert(0, cur)
+                    cur = by_id.get(cur['parent_id'])
+                current_category_ids = [n['id'] for n in chain]
+                cat_obj = Category.objects.filter(id=node['id']).first()
+
+    # --- availability ---
+    availability = request.GET.get('availability')
+    if availability == 'in_stock':
+        base_qs = base_qs.filter(stock__gt=0)
+    elif availability == 'out_of_stock':
+        base_qs = base_qs.filter(stock=0)
+
+    # --- labels ---
     label_filter = request.GET.get('label')
     if label_filter:
-        products = products.filter(label=label_filter)
+        base_qs = base_qs.filter(label=label_filter)
+
+    # --- search ---
+    search_query = (request.GET.get('q') or '').strip()
+    if search_query:
+        base_qs = base_qs.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(sku__icontains=search_query) |
+            Q(category__name__icontains=search_query)
+        )
+
+    # --- price range ---
     min_price = request.GET.get('min_price')
+    max_price = request.GET.get('max_price')
     if min_price:
         try:
-            products = products.filter(price__gte=Decimal(min_price))
+            base_qs = base_qs.filter(price__gte=Decimal(min_price))
         except Exception:
             pass
-    max_price = request.GET.get('max_price')
     if max_price:
         try:
-            products = products.filter(price__lte=Decimal(max_price))
+            base_qs = base_qs.filter(price__lte=Decimal(max_price))
         except Exception:
             pass
 
+    # --- sort ---
     sort = request.GET.get('sort', '')
-    sort_map = {
-        'price_asc': 'price',
-        'price_desc': '-price',
-        'name_asc': 'name',
-        'name_desc': '-name',
-        'newest': '-created',
-    }
-    if sort in sort_map:
-        products = products.order_by(sort_map[sort])
-    else:
-        products = products.order_by('-created')
+    base_qs = base_qs.order_by(SORT_MAP.get(sort, '-created'))
 
-    paginator = Paginator(products, 12)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # --- pagination ---
+    per_page = int(request.GET.get('per_page', 60))
+    if per_page not in (40, 60, 80, 100):
+        per_page = 60
+    paginator = Paginator(base_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    # --- AJAX product cards ---
     if request.GET.get('ajax'):
-        html = render_to_string('store/product_cards_partial.html', {'products': page_obj.object_list}, request)
-        return JsonResponse({
-            'html': html,
-            'has_next': page_obj.has_next(),
-            'total_pages': paginator.num_pages,
-        })
-    context = {
+        html = render_to_string('store/product_cards_partial.html',
+                                {'products': page_obj.object_list}, request)
+        return JsonResponse({'html': html, 'has_next': page_obj.has_next(),
+                             'total_pages': paginator.num_pages})
+
+    return {
         'page_obj': page_obj,
         'products': page_obj.object_list,
-        'categories': categories,
         'current_sort': sort,
-        'current_category': category_slug or '',
+        'current_category': cat_obj,
+        'current_category_ids': current_category_ids,
         'current_label': label_filter or '',
-        'search_query': search_query or '',
+        'search_query': search_query,
         'min_price': min_price or '',
         'max_price': max_price or '',
+        'availability': availability or '',
+        'per_page': per_page,
+        'total_count': paginator.count,
+        'sidebar_sliders': list(ShopSidebarSlider.objects.filter(is_active=True).filter(Q(section='') | Q(section='shop')).only('image', 'title', 'link_url', 'order')),
+        'shop_banners': list(ShopBanner.objects.filter(is_active=True).only('image', 'title', 'link_url', 'order')),
+        'sidebar_bottom_banners': list(ShopSidebarBottomBanner.objects.filter(is_active=True).filter(Q(section='') | Q(section='shop')).only('image', 'title', 'link_url', 'order')),
+        'slider_configs': ShopSliderConfig.as_map(),
     }
+
+
+def category_page(request, slug_path):
+    from .category_tree import resolve_path, get_tree, _collect
+    parts = [s for s in slug_path.strip('/').split('/') if s]
+    if not parts:
+        return redirect('shop')
+    cat = resolve_path(parts)
+    if cat is None:
+        return get_object_or_404(Category, slug=parts[-1])
+    category = Category.objects.get(id=cat['id'])
+    context = _shop_products(request, current_category=category)
+    if isinstance(context, HttpResponse):
+        return context
+
+    by_id = {}
+    for root in get_tree():
+        _collect(root, by_id)
+    chain = []
+    node = cat
+    seen = set()
+    while node is not None and node['id'] not in seen:
+        seen.add(node['id'])
+        chain.insert(0, node)
+        node = by_id.get(node['parent_id'])
+    breadcrumbs = [(n['name'], n['url']) for n in chain]
+    context['page_title'] = cat['name']
+    context['category_description'] = category.description
+    context['breadcrumb'] = breadcrumbs
+    context['current_category_ids'] = [n['id'] for n in chain]
     return render(request, 'store/shop_grid.html', context)
 
 
@@ -143,6 +282,10 @@ def quick_view(request, product_id):
 
 def product_detail(request, slug):
     product = get_object_or_404(Product.objects.filter(trashed=False), slug=slug)
+    if getattr(request, 'is_custom_domain', False):
+        custom_store = getattr(request, 'custom_store', None)
+        if not custom_store or custom_store.pk != product.partner_id:
+            return HttpResponseNotFound()
     related_products = Product.objects.filter(category=product.category, available=True, trashed=False, is_published=True).filter(Q(partner__isnull=True) | Q(partner__show_products=True)).exclude(id=product.id)[:4]
     can_review = False
     review_avg = 0
@@ -194,8 +337,17 @@ def seller_list(request):
     return render(request, 'store/seller_list.html', {'sellers': sellers})
 
 
+def union_list(request):
+    unions = Partner.objects.filter(is_union_agent=True)
+    return render(request, 'store/partner_list.html', {'partners': unions, 'page_title': 'Union Partner', 'q': ''})
+
+
 def partner_detail(request, slug):
     partner = get_object_or_404(Partner, slug=slug)
+    if getattr(request, 'is_custom_domain', False):
+        custom_store = getattr(request, 'custom_store', None)
+        if not custom_store or custom_store.pk != partner.pk:
+            return HttpResponseNotFound()
     partner_products = Product.objects.filter(partner=partner, available=True, trashed=False, is_published=True, partner__show_products=True).annotate(review_count=Count('reviews'), review_avg=Avg('reviews__rating'))
     base_qs = Product.objects.filter(available=True, trashed=False, is_published=True).filter(Q(partner__isnull=True) | Q(partner__show_products=True)).annotate(review_count=Count('reviews'), review_avg=Avg('reviews__rating'))
     partner_nav = PartnerNavMenu.objects.filter(partner=partner, is_active=True, parent=None).prefetch_related('children')
@@ -222,6 +374,8 @@ def partner_detail(request, slug):
         'show_random_products_section': partner.show_random_products_section,
         'show_slider': partner.show_slider,
         'partner_sliders': partner_sliders,
+        'sidebar_sliders': list(ShopSidebarSlider.objects.filter(is_active=True).filter(Q(section='') | Q(section='partner')).only('image', 'title', 'link_url')),
+        'sidebar_bottom_banners': list(ShopSidebarBottomBanner.objects.filter(is_active=True).filter(Q(section='') | Q(section='partner')).only('image', 'title', 'link_url')),
     }
     return render(request, 'store/partner_store.html', context)
 
@@ -234,11 +388,93 @@ def page_detail(request, slug):
         'landing': 'store/page_landing.html',
     }
     template = template_map.get(page.template_name, 'store/page_detail.html')
-    import bleach
-    allowed_tags = ['p', 'br', 'b', 'i', 'u', 'em', 'strong', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'span', 'div', 'img', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'video', 'source', 'iframe']
-    allowed_attrs = {'a': ['href', 'title', 'target', 'rel'], 'img': ['src', 'alt', 'width', 'height', 'class'], 'video': ['src', 'controls', 'width', 'height'], 'source': ['src', 'type'], 'iframe': ['src', 'width', 'height', 'frameborder', 'allowfullscreen'], '*': ['class', 'style', 'id']}
-    page.content = bleach.clean(page.content, tags=allowed_tags, attributes=allowed_attrs, strip=True)
+    try:
+        import bleach
+        allowed_tags = ['p', 'br', 'b', 'i', 'u', 'em', 'strong', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'span', 'div', 'img', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'video', 'source', 'iframe']
+        allowed_attrs = {'a': ['href', 'title', 'target', 'rel'], 'img': ['src', 'alt', 'width', 'height', 'class'], 'video': ['src', 'controls', 'width', 'height'], 'source': ['src', 'type'], 'iframe': ['src', 'width', 'height', 'frameborder', 'allowfullscreen'], '*': ['class', 'style', 'id']}
+        page.content = bleach.clean(page.content, tags=allowed_tags, attributes=allowed_attrs, strip=True)
+    except ImportError:
+        pass
     return render(request, template, {'page': page})
+
+
+def _scope_cms_css(css, prefix='#cmsPage'):
+    """Prefix every CSS selector with `prefix` so a page's own <style> only affects its container."""
+    import re as _re
+    out = []
+    i, n = 0, len(css)
+    while i < n:
+        if css[i] == '@':
+            j = css.find('{', i)
+            if j == -1:
+                out.append(css[i:])
+                break
+            depth, k = 1, j + 1
+            while depth and k < n:
+                if css[k] == '{':
+                    depth += 1
+                elif css[k] == '}':
+                    depth -= 1
+                k += 1
+            out.append(css[i:j + 1] + _scope_cms_css(css[j + 1:k - 1], prefix) + '}')
+            i = k
+            continue
+        j = css.find('{', i)
+        if j == -1:
+            out.append(css[i:])
+            break
+        selector = css[i:j]
+        depth, k = 1, j + 1
+        while depth and k < n:
+            if css[k] == '{':
+                depth += 1
+            elif css[k] == '}':
+                depth -= 1
+            k += 1
+        body = css[j + 1:k - 1]
+        sel = selector
+        if not selector.lstrip().startswith('@'):
+            parts = []
+            for piece in _re.split(r'(\s*,\s*)', selector):
+                if not piece.strip() or piece.strip() == ',':
+                    parts.append(piece)
+                    continue
+                t = piece.strip()
+                if t == '*':
+                    t = prefix + ' *'
+                else:
+                    t = prefix + ' ' + t
+                parts.append(' ' + t)
+            sel = ''.join(parts)
+        out.append(sel + '{' + body + '}')
+        i = k
+    return ''.join(out)
+
+
+def prepare_cms_content(raw):
+    """Takes an admin Page's raw HTML (possibly a full document) and returns embeddable, CSS-scoped HTML."""
+    import re as _re
+    if not raw:
+        return ''
+    m = _re.search(r'<body[^>]*>(.*)</body>', raw, _re.S | _re.I)
+    inner = m.group(1) if m else raw
+    inner = _re.sub(r'<style[^>]*>.*?</style>', '', inner, flags=_re.S | _re.I)
+    styles = _re.findall(r'<style[^>]*>(.*?)</style>', raw, _re.S | _re.I)
+    scoped = ''
+    if styles:
+        scoped = '<style>\n' + '\n'.join(_scope_cms_css(s) for s in styles) + '\n</style>\n'
+    return scoped + inner
+
+
+def site_page(request, slug, fallback_template):
+    """Render an admin-managed Page inside the full site (header + footer), falling back to a static template."""
+    page = Page.objects.filter(slug=slug, is_active=True).first()
+    if page:
+        return render(request, 'store/page_in_site.html', {
+            'page': page,
+            'cms_html': prepare_cms_content(page.content),
+        })
+    return render(request, fallback_template)
 
 
 def landing_page(request, slug):
@@ -867,11 +1103,89 @@ def dashboard(request):
             'unread_messages': unread_messages,
             'open_tickets': open_tickets,
             'low_stock_products': low_stock_products,
+            'primary_domain': partner.custom_domains.filter(is_active=True, is_primary=True).first(),
         })
     except Partner.DoesNotExist:
         orders = Order.objects.filter(user=request.user).prefetch_related('items__product').order_by('-created')
         unread_messages = _unread_message_count(request.user)
         return render(request, 'store/dashboard.html', {'partner': None, 'orders': orders, 'unread_messages': unread_messages})
+
+
+@login_required
+def dashboard_custom_domain(request):
+    """Seller / Partner / Dealer dashboard page for managing custom domains.
+
+    The whole flow (add -> DNS check -> SSL -> live routing) is automated by
+    background tasks; this view lets the owner add a domain, trigger an
+    immediate re-check, switch the live domain and disconnect old ones.
+    """
+    from .models import CustomDomain
+    from .services.custom_domain import (account_type_for, claim_domain,
+                                         custom_domain_enabled,
+                                         disconnect as domain_disconnect,
+                                         process_domain)
+
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        messages.error(request, 'Please create a store account first.')
+        return redirect('dashboard')
+
+    enabled = custom_domain_enabled()
+    account_label = dict(CustomDomain.ACCOUNT_TYPE_CHOICES).get(account_type_for(partner), 'Store')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'add':
+            raw_domain = request.POST.get('domain', '').strip()
+            try:
+                domain, error = claim_domain(partner, raw_domain)
+                if domain:
+                    messages.success(
+                        request,
+                        f'Domain {domain.domain} is connected and waiting for DNS. '
+                        f'Create an A record pointing to {getattr(settings, "SERVER_IP", "") or "your server IP"} '
+                        f'(or a CNAME to {getattr(settings, "PLATFORM_DOMAIN", "your-platform-domain")}) — we will activate it automatically.',
+                    )
+                else:
+                    messages.error(request, error or 'That domain could not be added.')
+            except ValueError as exc:
+                messages.error(request, str(exc))
+        elif action == 'set_primary':
+            pk = request.POST.get('pk')
+            domain = get_object_or_404(CustomDomain, pk=pk, owner=partner)
+            if domain.status == 'active':
+                CustomDomain.objects.filter(owner=partner).exclude(pk=domain.pk).update(is_primary=False, is_active=False)
+                domain.is_primary = True
+                domain.is_active = True
+                domain.save()
+                messages.success(request, f'{domain.domain} is now the active domain for your store.')
+            else:
+                messages.warning(request, f'{domain.domain} must be active before it can be used. Try again in a few minutes.')
+        elif action == 'recheck':
+            pk = request.POST.get('pk')
+            domain = get_object_or_404(CustomDomain, pk=pk, owner=partner)
+            process_domain(domain)
+            if domain.status == 'active':
+                messages.success(request, f'{domain.domain} is now live!')
+            else:
+                messages.info(request, domain.error_message or 'DNS / SSL check completed — the system will keep retrying automatically.')
+        elif action == 'disconnect':
+            pk = request.POST.get('pk')
+            domain = get_object_or_404(CustomDomain, pk=pk, owner=partner)
+            domain_disconnect(domain)
+            messages.success(request, f'{domain.domain} has been disconnected.')
+
+    domains = partner.custom_domains.all()
+    return render(request, 'store/dashboard_custom_domain.html', {
+        'partner': partner,
+        'domains': domains,
+        'primary_domain': domains.filter(is_active=True, is_primary=True).first(),
+        'account_label': account_label,
+        'custom_domain_enabled': enabled,
+        'platform_domain': getattr(settings, 'PLATFORM_DOMAIN', ''),
+        'server_ip': getattr(settings, 'SERVER_IP', ''),
+    })
 
 
 @login_required
@@ -1442,10 +1756,6 @@ def dashboard_product_create(request):
         sale_unit = request.POST.get('sale_unit', 'piece').strip()
         custom_unit_label = request.POST.get('custom_unit_label', '').strip()
         price_on_request = request.POST.get('price_on_request') == 'on'
-        medicine_brand_name = request.POST.get('medicine_brand_name', '').strip()
-        medicine_generic_name = request.POST.get('medicine_generic_name', '').strip()
-        medicine_strength = request.POST.get('medicine_strength', '').strip()
-        medicine_dosage_form = request.POST.get('medicine_dosage_form', '').strip()
 
         if not name or not price:
             return render(request, 'store/dashboard_product_form.html', {
@@ -1481,10 +1791,6 @@ def dashboard_product_create(request):
             sale_unit=sale_unit,
             custom_unit_label=custom_unit_label if sale_unit == 'custom' else '',
             price_on_request=price_on_request,
-            medicine_brand_name=medicine_brand_name,
-            medicine_generic_name=medicine_generic_name,
-            medicine_strength=medicine_strength,
-            medicine_dosage_form=medicine_dosage_form,
             is_published=True,
         )
         if 'image' in request.FILES:
@@ -1560,10 +1866,6 @@ def dashboard_product_edit(request, pk):
         product.sale_unit = request.POST.get('sale_unit', 'piece').strip()
         product.custom_unit_label = request.POST.get('custom_unit_label', '').strip() if product.sale_unit == 'custom' else ''
         product.price_on_request = request.POST.get('price_on_request') == 'on'
-        product.medicine_brand_name = request.POST.get('medicine_brand_name', '').strip()
-        product.medicine_generic_name = request.POST.get('medicine_generic_name', '').strip()
-        product.medicine_strength = request.POST.get('medicine_strength', '').strip()
-        product.medicine_dosage_form = request.POST.get('medicine_dosage_form', '').strip()
 
         if price:
             product.price = price
@@ -1835,6 +2137,8 @@ def dashboard_profile_edit(request):
         if request.POST.get('delete_banner'):
             partner.banner.delete()
             partner.banner = None
+        custom_url = request.POST.get('custom_redirect_url', '').strip()
+        partner.custom_redirect_url = custom_url if custom_url else ''
         for f in request.FILES.getlist('new_banners'):
             if f:
                 try:
@@ -3103,19 +3407,24 @@ def pos_daily_report(request):
 # ════════════════════════════════════════════
 
 def _check_medicine_pos_access(partner):
-    """Check if partner has valid Medicine POS access. Returns (allowed, message, redirect_url)."""
-    if partner.shop_style != 'medicine':
-        return False, 'Your shop style is not set to Medicine Shop.', None
-    if not partner.has_medicine_access:
-        return False, 'Medicine catalog access has not been granted by admin.', None
-    if not partner.medicine_pos_enabled:
-        return False, 'Medicine POS is not enabled. Contact admin to subscribe.', None
-    try:
-        sub = partner.medicine_subscription
-        if sub.is_locked:
-            return False, '', 'medicine_subscription_page'
-    except MedicineSubscription.DoesNotExist:
-        return False, 'Medicine POS subscription not found. Contact admin.', 'medicine_subscription_page'
+    """Check if partner has valid Medicine POS access. Returns (allowed, message, redirect_url).
+    Auto-creates a 60-day trial subscription for new users."""
+    sub = MedicineSubscription.objects.filter(partner=partner).first()
+    if not sub:
+        sub = MedicineSubscription.objects.create(
+            partner=partner,
+            status='trial',
+            trial_started_at=timezone.now(),
+            trial_ends_at=timezone.now() + timedelta(days=60),
+        )
+    if sub.status == 'trial' and sub.trial_ends_at and timezone.now() > sub.trial_ends_at:
+        sub.status = 'expired'
+        sub.save()
+    elif sub.status == 'active' and sub.current_period_end and timezone.now() > sub.current_period_end:
+        sub.status = 'expired'
+        sub.save()
+    if sub.is_locked:
+        return False, '', 'medicine_subscription_page'
     return True, '', None
 
 
@@ -3165,24 +3474,58 @@ def medicine_pos_product_search(request):
             return JsonResponse({'error': 'Subscription required. Please subscribe to continue.', 'redirect': sub_url}, status=403)
         return JsonResponse({'error': msg}, status=403)
     q = request.GET.get('q', '').strip()
-    products = MedicineProduct.objects.filter(is_approved=True)
-    if q:
-        products = products.filter(
+
+    if partner.medicine_inventory_enabled:
+        inv_items = MedicineInventory.objects.filter(
+            partner=partner, is_active=True
+        ).select_related('product').filter(
+            Q(product__brand_name__icontains=q) | Q(product__generic_name__icontains=q) |
+            Q(product__strength__icontains=q) | Q(product__sku__icontains=q) |
+            Q(product__dosage_form__icontains=q) | Q(product__manufacturer__icontains=q)
+        ) if q else MedicineInventory.objects.filter(partner=partner, is_active=True).select_related('product')
+
+        inv_items = inv_items.order_by('product__brand_name')[:30]
+        data = [{
+            'id': inv.product.id,
+            'inventory_id': inv.id,
+            'name': str(inv.product),
+            'brand_name': inv.product.brand_name,
+            'generic_name': inv.product.generic_name,
+            'strength': inv.product.strength,
+            'dosage_form': inv.product.dosage_form,
+            'manufacturer': inv.product.manufacturer,
+            'pack_size': inv.product.pack_size,
+            'price': str(inv.product.price),
+            'pack_price': str(inv.product.pack_price) if inv.product.pack_price else '',
+            'stock': inv.stock,
+            'low_stock': inv.is_low_stock,
+            'image': inv.product.image.url if inv.product.image else '',
+        } for inv in inv_items]
+    else:
+        products = MedicineProduct.objects.filter(is_approved=True).filter(
             Q(brand_name__icontains=q) | Q(generic_name__icontains=q) |
-            Q(strength__icontains=q) | Q(sku__icontains=q) | Q(dosage_form__icontains=q)
-        )
-    products = products.order_by('brand_name')[:30]
-    data = [{
-        'id': p.id,
-        'name': str(p),
-        'brand_name': p.brand_name,
-        'generic_name': p.generic_name,
-        'strength': p.strength,
-        'dosage_form': p.dosage_form,
-        'price': str(p.price),
-        'stock': p.stock,
-        'image': p.image.url if p.image else '',
-    } for p in products]
+            Q(strength__icontains=q) | Q(sku__icontains=q) |
+            Q(dosage_form__icontains=q) | Q(manufacturer__icontains=q)
+        ) if q else MedicineProduct.objects.filter(is_approved=True)
+
+        products = products.order_by('brand_name')[:30]
+        data = [{
+            'id': p.id,
+            'inventory_id': '',
+            'name': str(p),
+            'brand_name': p.brand_name,
+            'generic_name': p.generic_name,
+            'strength': p.strength,
+            'dosage_form': p.dosage_form,
+            'manufacturer': p.manufacturer,
+            'pack_size': p.pack_size,
+            'price': str(p.price),
+            'pack_price': str(p.pack_price) if p.pack_price else '',
+            'stock': '',
+            'low_stock': False,
+            'image': p.image.url if p.image else '',
+        } for p in products]
+
     return JsonResponse({'products': data})
 
 
@@ -3208,6 +3551,7 @@ def medicine_pos_order_create(request):
         return JsonResponse({'error': 'No items in order'}, status=400)
     subtotal = Decimal('0')
     order_items = []
+    inv_enabled = partner.medicine_inventory_enabled
     for item_data in items_data:
         pid = item_data.get('product_id')
         qty = int(item_data.get('quantity', 1))
@@ -3215,11 +3559,20 @@ def medicine_pos_order_create(request):
             continue
         item_discount = Decimal(str(item_data.get('discount', 0)))
         product = get_object_or_404(MedicineProduct.objects.filter(is_approved=True), id=pid)
+        inv = None
+        if inv_enabled:
+            try:
+                inv = MedicineInventory.objects.get(partner=partner, product=product)
+            except MedicineInventory.DoesNotExist:
+                return JsonResponse({'error': f'{product.brand_name} is not in your inventory'}, status=400)
+            if inv.stock < qty:
+                return JsonResponse({'error': f'Insufficient stock for {product.brand_name}. Available: {inv.stock}'}, status=400)
 
         line_total = product.price * qty
         subtotal += line_total
         order_items.append({
             'product': product,
+            'inventory': inv,
             'quantity': qty,
             'item_discount': item_discount,
         })
@@ -3241,6 +3594,7 @@ def medicine_pos_order_create(request):
         )
         for oi in order_items:
             product = oi['product']
+            inv = oi['inventory']
             qty = oi['quantity']
             item_discount = oi['item_discount']
             MedicinePosOrderItem.objects.create(
@@ -3251,6 +3605,17 @@ def medicine_pos_order_create(request):
                 quantity=qty,
                 discount=item_discount,
             )
+            if inv is not None:
+                inv.stock -= qty
+                inv.save(update_fields=['stock', 'updated'])
+                MedicineInventoryLog.objects.create(
+                    inventory=inv,
+                    adjustment_type='sale',
+                    quantity=-qty,
+                    balance_after=inv.stock,
+                    reason=f'Sale: {pos_order.invoice_number}',
+                    reference=pos_order.invoice_number,
+                )
     return JsonResponse({
         'success': True,
         'invoice': pos_order.invoice_number,
@@ -3314,10 +3679,23 @@ def medicine_pos_order_refund(request, pk):
     if order.status != 'completed':
         messages.error(request, 'This order cannot be refunded.')
         return redirect('medicine_pos_order_detail', pk=pk)
-    for item in order.items.all():
-        if item.product:
-            item.product.stock += item.quantity
-            item.product.save(update_fields=['stock'])
+    if partner.medicine_inventory_enabled:
+        for item in order.items.all():
+            if item.product:
+                try:
+                    inv = MedicineInventory.objects.get(partner=partner, product=item.product)
+                    inv.stock += item.quantity
+                    inv.save(update_fields=['stock', 'updated'])
+                    MedicineInventoryLog.objects.create(
+                        inventory=inv,
+                        adjustment_type='refund',
+                        quantity=item.quantity,
+                        balance_after=inv.stock,
+                        reason=f'Refund: {order.invoice_number}',
+                        reference=order.invoice_number,
+                    )
+                except MedicineInventory.DoesNotExist:
+                    pass
     order.status = 'refunded'
     order.save(update_fields=['status'])
     messages.success(request, f'Medicine POS order #{order.invoice_number} has been refunded.')
@@ -3335,10 +3713,23 @@ def medicine_pos_order_delete(request, pk):
         messages.error(request, 'No seller account found.')
         return redirect('dashboard')
     order = get_object_or_404(MedicinePosOrder, id=pk, partner=partner)
-    for item in order.items.all():
-        if item.product:
-            item.product.stock += item.quantity
-            item.product.save(update_fields=['stock'])
+    if partner.medicine_inventory_enabled:
+        for item in order.items.all():
+            if item.product:
+                try:
+                    inv = MedicineInventory.objects.get(partner=partner, product=item.product)
+                    inv.stock += item.quantity
+                    inv.save(update_fields=['stock', 'updated'])
+                    MedicineInventoryLog.objects.create(
+                        inventory=inv,
+                        adjustment_type='refund',
+                        quantity=item.quantity,
+                        balance_after=inv.stock,
+                        reason=f'Deleted order: {order.invoice_number}',
+                        reference=order.invoice_number,
+                    )
+                except MedicineInventory.DoesNotExist:
+                    pass
     order.delete()
     messages.success(request, f'Medicine POS order #{order.invoice_number} has been deleted.')
     return redirect('medicine_pos_order_list')
@@ -3385,9 +3776,6 @@ def medicine_request_product(request):
     except Partner.DoesNotExist:
         messages.error(request, 'No seller account found.')
         return redirect('dashboard')
-    if not partner.has_medicine_access:
-        messages.error(request, 'Medicine access not granted.')
-        return redirect('dashboard')
     if request.method == 'POST':
         brand_name = request.POST.get('brand_name', '').strip()
         generic_name = request.POST.get('generic_name', '').strip()
@@ -3426,7 +3814,31 @@ def medicine_subscription_page(request):
         messages.error(request, 'No seller account found.')
         return redirect('dashboard')
 
-    sub, _ = MedicineSubscription.objects.get_or_create(partner=partner)
+    sub, created = MedicineSubscription.objects.get_or_create(
+        partner=partner,
+        defaults={
+            'status': 'trial',
+            'trial_started_at': timezone.now(),
+            'trial_ends_at': timezone.now() + timedelta(days=60),
+        }
+    )
+    if created:
+        sub.trial_started_at = timezone.now()
+        sub.trial_ends_at = timezone.now() + timedelta(days=60)
+        sub.status = 'trial'
+        sub.save()
+
+    now = timezone.now()
+    changed = False
+    if sub.status == 'trial' and sub.trial_ends_at and sub.trial_ends_at <= now:
+        sub.status = 'expired'
+        changed = True
+    elif sub.status == 'active' and sub.current_period_end and sub.current_period_end <= now:
+        sub.status = 'expired'
+        changed = True
+    if changed:
+        sub.save()
+    effective_status = sub.status
 
     wallet, _ = PartnerWallet.objects.get_or_create(partner=partner)
     wallet_balance = wallet.available_balance
@@ -3487,6 +3899,7 @@ def medicine_subscription_page(request):
     return render(request, 'store/medicine_subscription.html', {
         'partner': partner,
         'sub': sub,
+        'effective_status': effective_status,
         'wallet_balance': wallet_balance,
         'trial_remaining': trial_remaining,
         'packages': packages,
@@ -4022,3 +4435,344 @@ def admin_ticket_detail(request, pk):
         'ticket': ticket,
         'replies': replies,
     })
+
+
+def sitemap_view(request):
+    from django.template.loader import render_to_string
+    pages = Page.objects.filter(is_active=True)
+    products = Product.objects.filter(available=True, trashed=False, is_published=True)
+    blog_posts = BlogPost.objects.all()
+    partners = Partner.objects.all()
+    content = render_to_string('sitemap.xml', {
+        'pages': pages,
+        'products': products,
+        'blog_posts': blog_posts,
+        'partners': partners,
+    }, request=request)
+    return HttpResponse(content, content_type='application/xml')
+
+
+def search_view(request):
+    query = request.GET.get('q', '').strip()
+    products = Product.objects.filter(available=True, trashed=False, is_published=True)
+    if query:
+        products = products.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query) |
+            Q(short_description__icontains=query) |
+            Q(sku__icontains=query) |
+            Q(category__name__icontains=query)
+        )
+    products = products.annotate(review_count=Count('reviews'), review_avg=Avg('reviews__rating'))
+    paginator = Paginator(products, 60)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'store/shop_grid.html', {
+        'page_obj': page_obj,
+        'products': page_obj.object_list,
+        'categories': Category.objects.filter(parent=None).prefetch_related('children'),
+        'search_query': query,
+        'current_sort': '',
+        'current_category': '',
+        'current_label': '',
+        'min_price': '',
+        'max_price': '',
+    })
+
+
+def newsletter_subscribe(request):
+    if request.method == 'POST':
+        messages.success(request, 'Thank you for subscribing!')
+    return redirect('home')
+
+
+def discount_card(request):
+    contents = DiscountCardContent.objects.filter(is_active=True).order_by('sort_order', '-created')
+    return render(request, 'store/discount_card.html', {'contents': contents})
+
+
+def manufacturer_products(request):
+    products = Product.objects.filter(available=True, trashed=False, is_published=True, partner__isnull=True)
+    products = products.annotate(review_count=Count('reviews'), review_avg=Avg('reviews__rating'))
+    paginator = Paginator(products, 60)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'store/shop_grid.html', {
+        'page_obj': page_obj,
+        'products': page_obj.object_list,
+        'categories': Category.objects.filter(parent=None).prefetch_related('children'),
+        'search_query': '',
+        'current_sort': '',
+        'current_category': '',
+        'current_label': '',
+        'min_price': '',
+        'max_price': '',
+    })
+
+
+# ─── Medicine Inventory Views ───
+
+@login_required
+def medicine_inventory_toggle(request):
+    partner = get_object_or_404(Partner, user=request.user)
+    if request.method == 'POST':
+        partner.medicine_inventory_enabled = not partner.medicine_inventory_enabled
+        partner.save(update_fields=['medicine_inventory_enabled'])
+        status = 'enabled' if partner.medicine_inventory_enabled else 'disabled'
+        messages.success(request, f'Inventory tracking {status}.')
+    return redirect('medicine_pos_dashboard')
+
+
+@login_required
+def medicine_inventory_list(request):
+    partner = get_object_or_404(Partner, user=request.user)
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+
+    if not MedicineInventory.objects.filter(partner=partner).exists():
+        _auto_populate_inventory(partner)
+
+    q = request.GET.get('q', '').strip()
+    stock_filter = request.GET.get('stock', '')
+    sort = request.GET.get('sort', 'brand_name')
+
+    items = MedicineInventory.objects.filter(partner=partner).select_related('product')
+
+    if q:
+        items = items.filter(
+            Q(product__brand_name__icontains=q) |
+            Q(product__generic_name__icontains=q) |
+            Q(product__strength__icontains=q) |
+            Q(product__sku__icontains=q) |
+            Q(product__manufacturer__icontains=q)
+        )
+
+    if stock_filter == 'out':
+        items = items.filter(stock=0)
+    elif stock_filter == 'low':
+        items = items.filter(stock__gt=0, stock__lte=F('low_stock_threshold'))
+    elif stock_filter == 'ok':
+        items = items.filter(stock__gt=F('low_stock_threshold'))
+
+    if sort == 'stock_asc':
+        items = items.order_by('stock')
+    elif sort == 'stock_desc':
+        items = items.order_by('-stock')
+    else:
+        items = items.order_by('product__brand_name')
+
+    total_items = MedicineInventory.objects.filter(partner=partner).count()
+    in_stock = MedicineInventory.objects.filter(partner=partner, stock__gt=0).count()
+    out_of_stock = MedicineInventory.objects.filter(partner=partner, stock=0).count()
+    low_stock = MedicineInventory.objects.filter(partner=partner, stock__gt=0, stock__lte=F('low_stock_threshold')).count()
+
+    paginator = Paginator(items, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'store/medicine_inventory.html', {
+        'partner': partner,
+        'page_obj': page_obj,
+        'items': page_obj.object_list,
+        'total_items': total_items,
+        'in_stock': in_stock,
+        'out_of_stock': out_of_stock,
+        'low_stock': low_stock,
+        'q': q,
+        'stock_filter': stock_filter,
+        'sort': sort,
+    })
+
+
+@login_required
+def medicine_inventory_adjust(request, pk):
+    partner = get_object_or_404(Partner, user=request.user)
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+
+    inventory_item = get_object_or_404(MedicineInventory, pk=pk, partner=partner)
+    product = inventory_item.product
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        quantity = int(request.POST.get('quantity', 0))
+        reason = request.POST.get('reason', '').strip()
+
+        if action == 'toggle_active':
+            inventory_item.is_active = not inventory_item.is_active
+            inventory_item.save(update_fields=['is_active', 'updated'])
+            status = 'activated' if inventory_item.is_active else 'deactivated'
+            messages.success(request, f'Product {status} in POS.')
+            return redirect('medicine_inventory_list')
+
+        if quantity <= 0:
+            messages.error(request, 'Quantity must be a positive number.')
+            return redirect('medicine_inventory_adjust', pk=pk)
+
+        if action == 'stock_in':
+            inventory_item.stock += quantity
+            inventory_item.save(update_fields=['stock', 'updated'])
+            MedicineInventoryLog.objects.create(
+                inventory=inventory_item,
+                adjustment_type='stock_in',
+                quantity=quantity,
+                balance_after=inventory_item.stock,
+                reason=reason or 'Stock in',
+            )
+            messages.success(request, f'+{quantity} added. New stock: {inventory_item.stock}')
+
+        elif action == 'stock_out':
+            if quantity > inventory_item.stock:
+                messages.error(request, f'Cannot remove {quantity}. Current stock: {inventory_item.stock}')
+                return redirect('medicine_inventory_adjust', pk=pk)
+            inventory_item.stock -= quantity
+            inventory_item.save(update_fields=['stock', 'updated'])
+            MedicineInventoryLog.objects.create(
+                inventory=inventory_item,
+                adjustment_type='stock_out',
+                quantity=-quantity,
+                balance_after=inventory_item.stock,
+                reason=reason or 'Stock out',
+            )
+            messages.success(request, f'-{quantity} removed. New stock: {inventory_item.stock}')
+
+        elif action == 'set_stock':
+            diff = quantity - inventory_item.stock
+            inventory_item.stock = quantity
+            inventory_item.save(update_fields=['stock', 'updated'])
+            MedicineInventoryLog.objects.create(
+                inventory=inventory_item,
+                adjustment_type='adjustment',
+                quantity=diff,
+                balance_after=inventory_item.stock,
+                reason=reason or 'Manual stock set',
+            )
+            messages.success(request, f'Stock set to {inventory_item.stock}')
+
+        elif action == 'set_threshold':
+            inventory_item.low_stock_threshold = quantity
+            inventory_item.save(update_fields=['low_stock_threshold', 'updated'])
+            messages.success(request, f'Low stock threshold set to {inventory_item.low_stock_threshold}')
+
+        return redirect('medicine_inventory_list')
+
+    recent_logs = inventory_item.logs.all()[:10]
+
+    return render(request, 'store/medicine_inventory_adjust.html', {
+        'partner': partner,
+        'inventory_item': inventory_item,
+        'product': product,
+        'recent_logs': recent_logs,
+    })
+
+
+@login_required
+def medicine_inventory_log(request):
+    partner = get_object_or_404(Partner, user=request.user)
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+
+    logs = MedicineInventoryLog.objects.filter(
+        inventory__partner=partner
+    ).select_related('inventory', 'inventory__product')
+
+    type_filter = request.GET.get('type', '')
+    if type_filter:
+        logs = logs.filter(adjustment_type=type_filter)
+
+    paginator = Paginator(logs, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'store/medicine_inventory_log.html', {
+        'partner': partner,
+        'page_obj': page_obj,
+        'logs': page_obj.object_list,
+        'type_filter': type_filter,
+    })
+
+
+@login_required
+def medicine_inventory_bulk_update(request):
+    partner = get_object_or_404(Partner, user=request.user)
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+
+    if request.method != 'POST':
+        return redirect('medicine_inventory_list')
+
+    action = request.POST.get('action', '')
+    ids = request.POST.getlist('ids')
+    quantity = int(request.POST.get('quantity', 0))
+    reason = request.POST.get('reason', '').strip()
+
+    if not ids:
+        messages.error(request, 'No products selected.')
+        return redirect('medicine_inventory_list')
+
+    items = MedicineInventory.objects.filter(partner=partner, id__in=ids)
+
+    if action == 'bulk_stock_in':
+        for item in items:
+            item.stock += quantity
+            item.save(update_fields=['stock', 'updated'])
+            MedicineInventoryLog.objects.create(
+                inventory=item,
+                adjustment_type='stock_in',
+                quantity=quantity,
+                balance_after=item.stock,
+                reason=reason or 'Bulk stock in',
+            )
+        messages.success(request, f'+{quantity} added to {items.count()} products.')
+
+    elif action == 'bulk_stock_out':
+        skipped = 0
+        updated = 0
+        for item in items:
+            if quantity > item.stock:
+                skipped += 1
+                continue
+            item.stock -= quantity
+            item.save(update_fields=['stock', 'updated'])
+            MedicineInventoryLog.objects.create(
+                inventory=item,
+                adjustment_type='stock_out',
+                quantity=-quantity,
+                balance_after=item.stock,
+                reason=reason or 'Bulk stock out',
+            )
+            updated += 1
+        msg = f'Updated {updated} products.'
+        if skipped:
+            msg += f' Skipped {skipped} (insufficient stock).'
+        messages.success(request, msg)
+
+    return redirect('medicine_inventory_list')
+
+
+def _auto_populate_inventory(partner):
+    existing = set(
+        MedicineInventory.objects.filter(partner=partner).values_list('product_id', flat=True)
+    )
+    products = MedicineProduct.objects.filter(is_approved=True).values_list('id', flat=True)
+    batch = []
+    for pid in products:
+        if pid not in existing:
+            batch.append(MedicineInventory(partner=partner, product_id=pid, stock=0, is_active=True))
+            if len(batch) >= 5000:
+                MedicineInventory.objects.bulk_create(batch, ignore_conflicts=True)
+                batch = []
+    if batch:
+        MedicineInventory.objects.bulk_create(batch, ignore_conflicts=True)

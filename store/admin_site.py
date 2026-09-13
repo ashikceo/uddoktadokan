@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from datetime import timedelta
 from . import bd_data
-from .models import Product, Order, OrderItem, Contact, ProductReview, Partner, RefundRequest, WithdrawalRequest, CustomOrder, SiteLogo, Conversation, SupportTicket, MedicineProduct, MedicineSubscription
+from .models import Product, Order, OrderItem, Contact, ProductReview, Partner, RefundRequest, WithdrawalRequest, CustomOrder, SiteLogo, Conversation, SupportTicket, MedicineProduct, MedicineSubscription, MedicineInventory, MedicineInventoryLog, DiscountCardContent
 
 
 MODEL_GROUPS = {
@@ -19,11 +19,11 @@ MODEL_GROUPS = {
         'icon': 'shopping-bag',
     },
     'Partners': {
-        'models': ['Partner', 'PartnerWallet', 'WalletTransaction', 'WithdrawalRequest', 'PayoutMethod'],
+        'models': ['Partner', 'PartnerWallet', 'WalletTransaction', 'WithdrawalRequest', 'PayoutMethod', 'CustomDomain'],
         'icon': 'users',
     },
     'Content': {
-        'models': ['BlogPost', 'Page', 'LandingPage', 'Slider', 'HomeBanner', 'SideBanner', 'NavMenu', 'PartnerNavMenu'],
+        'models': ['BlogPost', 'Page', 'LandingPage', 'Slider', 'HomeBanner', 'SideBanner', 'NavMenu', 'PartnerNavMenu', 'NewsTicker', 'ShopSidebarSlider', 'ShopBanner', 'ShopSidebarBottomBanner', 'ShopSliderConfig', 'DiscountCardContent', 'SocialMediaLink'],
         'icon': 'file-text',
     },
     'Finance': {
@@ -31,7 +31,7 @@ MODEL_GROUPS = {
         'icon': 'money',
     },
     'System': {
-        'models': ['User', 'Group', 'Contact', 'SiteLogo', 'SocialMediaLink'],
+        'models': ['User', 'Group', 'Contact', 'SiteLogo'],
         'icon': 'cog',
     },
     'Features': {
@@ -43,7 +43,7 @@ MODEL_GROUPS = {
         'icon': 'life-ring',
     },
     'Medicine': {
-        'models': ['MedicineProduct', 'MedicinePosOrder', 'MedicinePosOrderItem', 'MedicineSubscription', 'SubscriptionPackage', 'WalletRechargeInstruction', 'Partner'],
+        'models': ['MedicineProduct', 'MedicinePosOrder', 'MedicinePosOrderItem', 'MedicineInventory', 'MedicineInventoryLog', 'MedicineSubscription', 'SubscriptionPackage', 'WalletRechargeInstruction', 'Partner'],
         'icon': 'medkit',
     },
 }
@@ -64,25 +64,16 @@ class CustomAdminSite(AdminSite):
         return ctx
 
     def get_app_list(self, request, app_label=None):
-        app_list = super().get_app_list(request)
-        if not app_list:
-            return app_list
-
-        store_app = None
-        for app in app_list:
-            if app.get('app_label') == 'store':
-                store_app = app
-                break
-
-        if not store_app:
-            return app_list
-
-        models = store_app.get('models', [])
-
         model_map = {}
-        for m in models:
-            name = m['object_name']
-            model_map[name] = m
+        for model, model_admin in self._registry.items():
+            if model._meta.app_label == 'store':
+                model_map[model.__name__] = {
+                    'object_name': model.__name__,
+                    'name': model._meta.verbose_name_plural.title(),
+                    'admin_url': f'/admin/store/{model._meta.model_name}/',
+                    'add_url': f'/admin/store/{model._meta.model_name}/add/',
+                    'view_only': False,
+                }
 
         grouped = []
         for group_name, group_info in MODEL_GROUPS.items():
@@ -99,23 +90,27 @@ class CustomAdminSite(AdminSite):
                     'models': group_models,
                 })
 
-        auth_app = None
-        for app in app_list:
-            if app.get('app_label') in ('auth',):
-                auth_app = app
+        for model, model_admin in self._registry.items():
+            if model._meta.app_label == 'auth':
+                model_map[model.__name__] = {
+                    'object_name': model.__name__,
+                    'name': model._meta.verbose_name_plural.title(),
+                    'admin_url': f'/admin/{model._meta.app_label}/{model._meta.model_name}/',
+                    'add_url': f'/admin/{model._meta.app_label}/{model._meta.model_name}/add/',
+                    'view_only': False,
+                }
+
+        system_group = None
+        for g in grouped:
+            if g['name'] == 'System':
+                system_group = g
                 break
-        if auth_app:
-            system_group = None
-            for g in grouped:
-                if g['name'] == 'System':
-                    system_group = g
-                    break
-            if not system_group:
-                system_group = {'name': 'System', 'app_label': 'store', 'app_url': '#', 'has_module_perms': True, 'models': []}
-                grouped.append(system_group)
-            for m in auth_app.get('models', []):
-                if m['object_name'] in ('User', 'Group'):
-                    system_group['models'].append(m)
+        if not system_group:
+            system_group = {'name': 'System', 'app_label': 'store', 'app_url': '#', 'has_module_perms': True, 'models': []}
+            grouped.append(system_group)
+        for model_name in ('User', 'Group'):
+            if model_name in model_map:
+                system_group['models'].append(model_map[model_name])
 
         return grouped
 
@@ -348,8 +343,9 @@ class CustomAdminSite(AdminSite):
         if not slug and raw_upazila and raw_district:
             slug = bd_data.generate_slug(raw_upazila, raw_district)
         elif not slug:
+            from .models import generate_partner_slug
             slug_text = name or raw_upazila or 'partner'
-            slug = slugify(slug_text)
+            slug = generate_partner_slug(slug_text)
 
         # Generate description (Bengali) if blank
         description = row.get('description', '').strip()
@@ -450,7 +446,8 @@ class CustomAdminSite(AdminSite):
         }
 
         # Always create a new record, even if name already exists
-        slug = data['slug'] or slugify(name)
+        from .models import generate_partner_slug
+        slug = data['slug'] or generate_partner_slug(name)
         if Partner.objects.filter(slug=slug).exists():
             from .models import _unique_slug
             slug = _unique_slug(Partner, 'slug', slug)

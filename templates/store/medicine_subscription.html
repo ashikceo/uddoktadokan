@@ -11,13 +11,13 @@
 
     <div class="page-header"><h1>Medicine POS Subscription</h1></div>
 
-    {% if sub.status == 'trial' %}
+    {% if effective_status == 'trial' %}
     <div style="border:1px solid #17a2b8;border-radius:8px;padding:25px;background:#e7f7ff;margin-bottom:20px;">
-        <h3 style="margin:0 0 8px;color:#17a2b8;"><i class="fa fa-clock-o"></i> Trial Active</h3>
-        <p style="margin:0 0 12px;color:#555;font-size:14px;">Your 60-day trial is in progress.</p>
+        <h3 style="margin:0 0 8px;color:#17a2b8;"><i class="fa fa-clock-o"></i> Free Trial Active</h3>
+        <p style="margin:0 0 12px;color:#555;font-size:14px;">You have a free <strong>60-day trial</strong> for Medicine POS. No payment required during the trial period.</p>
         {% if trial_remaining > 0 %}
         <div style="background:#fff;border-radius:20px;height:24px;overflow:hidden;border:1px solid #17a2b8;margin-bottom:8px;">
-            <div style="background:#17a2b8;height:100%;width:{{ trial_remaining|floatformat:0|default:0 }}%;border-radius:20px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;min-width:40px;">
+            <div style="background:#17a2b8;height:100%;width:{% widthratio trial_remaining 60 100 %}%;border-radius:20px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;min-width:40px;">
                 {{ trial_remaining }} days remaining
             </div>
         </div>
@@ -25,9 +25,12 @@
         {% else %}
         <p style="font-size:14px;color:#dc3545;font-weight:600;">Your trial has ended. Please subscribe to continue using Medicine POS.</p>
         {% endif %}
+        <p style="margin-top:12px;">
+            <a href="{% url 'medicine_pos_dashboard' %}" class="btn btn-primary" style="background:#6f42c1;border-color:#6f42c1;"><i class="fa fa-plus"></i> Start Selling Now</a>
+        </p>
     </div>
 
-    {% elif sub.status == 'active' %}
+    {% elif effective_status == 'active' %}
     <div style="border:1px solid #28a745;border-radius:8px;padding:25px;background:#e8f8e8;margin-bottom:20px;">
         <h3 style="margin:0 0 8px;color:#28a745;"><i class="fa fa-check-circle"></i> Subscription Active</h3>
         <p style="margin:0 0 4px;color:#555;font-size:14px;">Your subscription is active until <strong>{{ sub.current_period_end|date:"d M Y" }}</strong>.</p>
@@ -42,7 +45,7 @@
         </p>
     </div>
 
-    {% elif sub.status == 'expired' %}
+    {% elif effective_status == 'expired' %}
     <div style="border:1px solid #dc3545;border-radius:8px;padding:25px;background:#fff5f5;margin-bottom:20px;">
         <h3 style="margin:0 0 8px;color:#dc3545;"><i class="fa fa-exclamation-triangle"></i> Subscription Expired</h3>
         <p style="margin:0 0 4px;color:#555;font-size:14px;">Your subscription has ended. Subscribe now to regain access to Medicine POS.</p>
@@ -51,20 +54,20 @@
         {% endif %}
     </div>
 
-    {% elif sub.status == 'cancelled' %}
+    {% elif effective_status == 'cancelled' %}
     <div style="border:1px solid #ffc107;border-radius:8px;padding:25px;background:#fffef5;margin-bottom:20px;">
         <h3 style="margin:0 0 8px;color:#856404;"><i class="fa fa-ban"></i> Subscription Cancelled</h3>
         <p style="margin:0 0 12px;color:#555;font-size:14px;">Your Medicine POS subscription was cancelled. Subscribe again to continue.</p>
     </div>
 
-    {% elif sub.status == 'inactive' %}
+    {% elif effective_status == 'inactive' %}
     <div style="border:1px solid #6c757d;border-radius:8px;padding:25px;background:#f8f9fa;margin-bottom:20px;">
         <h3 style="margin:0 0 8px;color:#6c757d;"><i class="fa fa-pause"></i> Not Started</h3>
-        <p style="margin:0 0 12px;color:#555;font-size:14px;">Your Medicine POS subscription has not been activated yet. Contact admin or subscribe below.</p>
+        <p style="margin:0 0 12px;color:#555;font-size:14px;">Your Medicine POS subscription is being set up. Please contact support if this persists.</p>
     </div>
     {% endif %}
 
-    {% if sub.status != 'active' %}
+    {% if effective_status == 'expired' or effective_status == 'cancelled' or effective_status == 'inactive' %}
     <div style="border:1px solid #eee;border-radius:8px;padding:25px;background:#fff;margin-bottom:20px;">
         <h3 style="margin:0 0 15px;color:#333;font-size:18px;">Subscribe to Medicine POS</h3>
         <p style="color:#555;margin-bottom:15px;font-size:14px;">Choose a subscription package and pay via wallet or manually.</p>

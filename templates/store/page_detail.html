@@ -1,9 +1,28 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ page.title }} - Uddoktar Dokan{% endblock %}
+{% block title %}{% if page.meta_title %}{{ page.meta_title }}{% else %}{{ page.title }} - {{ site_name }}{% endif %}{% endblock %}
+
+{% block meta_description %}{% if page.meta_description %}{{ page.meta_description }}{% else %}{{ site_tagline }}{% endif %}{% endblock %}
+
+{% block og_title %}{% if page.meta_title %}{{ page.meta_title }}{% else %}{{ page.title }} - {{ site_name }}{% endif %}{% endblock %}
+
+{% block og_description %}{% if page.meta_description %}{{ page.meta_description }}{% else %}{{ site_tagline }}{% endif %}{% endblock %}
+
+{% block og_image %}{% if page.featured_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ page.featured_image.url }}">{% elif site_logo and site_logo.logo %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ site_logo.logo.url }}">{% endif %}{% endblock %}
+
+{% block twitter_title %}{% if page.meta_title %}{{ page.meta_title }}{% else %}{{ page.title }} - {{ site_name }}{% endif %}{% endblock %}
+
+{% block twitter_description %}{% if page.meta_description %}{{ page.meta_description }}{% else %}{{ site_tagline }}{% endif %}{% endblock %}
+
+{% block twitter_image %}{% if page.featured_image %}<meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ page.featured_image.url }}">{% elif site_logo and site_logo.logo %}<meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ site_logo.logo.url }}">{% endif %}{% endblock %}
 
 {% block content %}
+{% if page.featured_image %}
+<div style="width:100%; max-height:400px; overflow:hidden;">
+    <img src="{{ page.featured_image.url }}" alt="{{ page.title }}" style="width:100%; object-fit:cover; max-height:400px;">
+</div>
+{% endif %}
 <div class="container page-content" style="padding:40px 0; min-height:50vh;">
     <div class="breadcrumb">
         <a href="{% url 'home' %}">Home</a> / <span>{{ page.title }}</span>
@@ -11,4 +30,7 @@
     <h1 style="border-bottom:2px solid #e74847; padding-bottom:10px; margin:20px 0;">{{ page.title }}</h1>
     <div style="line-height:1.8; font-size:15px;">{{ page.content|safe }}</div>
 </div>
+<style>{{ page.custom_css|default:'' }}</style>
 {% endblock %}
+
+{% block extra_js %}<script>{{ page.custom_js|default:'' }}</script>{% endblock %}

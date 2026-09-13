@@ -364,12 +364,31 @@ class ContactViewTest(TestCase):
 class NavMenuModelTest(TestCase):
     def setUp(self):
         self.menu = NavMenu.objects.create(
-            title='Home', url='/', url_type='path', order=0, is_active=True
+            title='Home', url='home', url_type='named_url', order=0, is_active=True
         )
 
     def test_menu_creation(self):
         self.assertEqual(self.menu.title, 'Home')
-        self.assertEqual(self.menu.url, '/')
+        self.assertEqual(self.menu.url, 'home')
+        self.assertEqual(self.menu.kind, 'link')
+        self.assertFalse(self.menu.open_new_tab)
+
+    def test_get_url_named(self):
+        self.assertEqual(self.menu.get_url(), reverse('home'))
+
+    def test_get_url_path(self):
+        item = NavMenu.objects.create(title='X', url='/shop/', url_type='path', order=1)
+        self.assertEqual(item.get_url(), '/shop/')
+
+    def test_get_url_invalid_name_returns_hash(self):
+        item = NavMenu.objects.create(title='Bad', url='no_such_url_xyz', url_type='named_url', order=2)
+        self.assertEqual(item.get_url(), '#')
+
+    def test_get_url_special_kinds(self):
+        cat = NavMenu.objects.create(title='Categories', kind='categories', url='shop', url_type='named_url', order=3)
+        self.assertEqual(cat.get_url(), reverse('shop'))
+        acc = NavMenu.objects.create(title='Account', kind='account', url='dashboard', url_type='named_url', order=4)
+        self.assertEqual(acc.get_url(), '#')
 
 
 class CheckoutViewTest(TestCase):

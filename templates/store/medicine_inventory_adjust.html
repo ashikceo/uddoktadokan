@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block title %}Adjust Stock — {{ product.brand_name }}{% endblock %}
+{% block content %}
+<div class="container" style="margin-top:100px;margin-bottom:60px;">
+  <div class="row">
+    <div class="col-md-8 col-md-offset-2">
+      <a href="{% url 'medicine_inventory_list' %}" style="margin-bottom:15px;display:inline-block;"><i class="fa fa-arrow-left"></i> Back to Inventory</a>
+
+      {% if messages %}
+      {% for msg in messages %}
+      <div class="alert alert-{{ msg.tags }} alert-dismissible" style="margin-bottom:15px;">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        {{ msg }}
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:20px;margin-bottom:20px;">
+        <h3 style="margin:0 0 5px;">{{ product.brand_name }}</h3>
+        <div style="color:#888;margin-bottom:10px;">
+          {{ product.generic_name }} | {{ product.strength }} | {{ product.dosage_form }}
+        </div>
+        <div style="margin-bottom:10px;">
+          <span style="font-size:11px;color:#888;">SKU:</span> {{ product.sku }} &nbsp;
+          <span style="font-size:11px;color:#888;">Manufacturer:</span> {{ product.manufacturer }} &nbsp;
+          <span style="font-size:11px;color:#888;">Pack:</span> {{ product.pack_size }}
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          <div>
+            <span style="font-size:11px;color:#888;">Catalog Price:</span>
+            <strong style="color:#333;">&#2547;{{ product.price }}</strong>
+          </div>
+          {% if product.pack_price %}
+          <div>
+            <span style="font-size:11px;color:#888;">Pack Price:</span>
+            <strong style="color:#333;">&#2547;{{ product.pack_price }}</strong>
+          </div>
+          {% endif %}
+          <div>
+            <span style="font-size:11px;color:#888;">Your Stock:</span>
+            {% if inventory_item.stock == 0 %}
+            <strong style="color:#d9534f;font-size:18px;">0</strong>
+            {% elif inventory_item.is_low_stock %}
+            <strong style="color:#f0ad4e;font-size:18px;">{{ inventory_item.stock }}</strong>
+            {% else %}
+            <strong style="color:#5cb85c;font-size:18px;">{{ inventory_item.stock }}</strong>
+            {% endif %}
+          </div>
+          <div>
+            <span style="font-size:11px;color:#888;">Low Threshold:</span>
+            {{ inventory_item.low_stock_threshold }}
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:20px;">
+        <div class="col-sm-4">
+          <form method="post" style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:15px;">
+            {% csrf_token %}
+            <h5 style="margin:0 0 10px;color:#5cb85c;"><i class="fa fa-plus-circle"></i> Stock In</h5>
+            <input type="hidden" name="action" value="stock_in">
+            <div class="form-group">
+              <input type="number" name="quantity" class="form-control" placeholder="Quantity" min="1" required>
+            </div>
+            <div class="form-group">
+              <input type="text" name="reason" class="form-control" placeholder="Reason (optional)">
+            </div>
+            <button type="submit" class="btn btn-success btn-block"><i class="fa fa-plus"></i> Add Stock</button>
+          </form>
+        </div>
+        <div class="col-sm-4">
+          <form method="post" style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:15px;">
+            {% csrf_token %}
+            <h5 style="margin:0 0 10px;color:#d9534f;"><i class="fa fa-minus-circle"></i> Stock Out</h5>
+            <input type="hidden" name="action" value="stock_out">
+            <div class="form-group">
+              <input type="number" name="quantity" class="form-control" placeholder="Quantity" min="1" max="{{ inventory_item.stock }}" required>
+            </div>
+            <div class="form-group">
+              <input type="text" name="reason" class="form-control" placeholder="Reason (e.g. damaged, expired)">
+            </div>
+            <button type="submit" class="btn btn-danger btn-block" onclick="return confirm('Remove from stock?')"><i class="fa fa-minus"></i> Remove</button>
+          </form>
+        </div>
+        <div class="col-sm-4">
+          <form method="post" style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:15px;">
+            {% csrf_token %}
+            <h5 style="margin:0 0 10px;color:#337ab7;"><i class="fa fa-pencil"></i> Set Stock</h5>
+            <input type="hidden" name="action" value="set_stock">
+            <div class="form-group">
+              <input type="number" name="quantity" class="form-control" placeholder="New stock count" min="0" required>
+            </div>
+            <div class="form-group">
+              <input type="text" name="reason" class="form-control" placeholder="Reason (optional)">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-save"></i> Set Stock</button>
+          </form>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:15px;margin-bottom:20px;">
+        <form method="post" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="set_threshold">
+          <span style="font-weight:bold;">Low Stock Threshold:</span>
+          <input type="number" name="quantity" value="{{ inventory_item.low_stock_threshold }}" class="form-control" style="width:100px;" min="0" required>
+          <button type="submit" class="btn btn-default btn-sm"><i class="fa fa-save"></i> Save</button>
+        </form>
+      </div>
+
+      <div style="text-align:center;margin-bottom:20px;">
+        <form method="post" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="toggle_active">
+          {% if inventory_item.is_active %}
+          <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Hide this product from POS?')"><i class="fa fa-eye-slash"></i> Hide from POS</button>
+          {% else %}
+          <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Show this product in POS?')"><i class="fa fa-eye"></i> Show in POS</button>
+          {% endif %}
+        </form>
+      </div>
+
+      {% if recent_logs %}
+      <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:15px;">
+        <h5 style="margin:0 0 10px;"><i class="fa fa-history"></i> Recent Stock Changes</h5>
+        <table class="table table-condensed" style="margin:0;">
+          <thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>Balance</th><th>Reason</th></tr></thead>
+          <tbody>
+          {% for log in recent_logs %}
+          <tr>
+            <td style="font-size:12px;">{{ log.created|date:"d M Y H:i" }}</td>
+            <td>
+              {% if log.adjustment_type == 'sale' %}<span class="label label-danger">Sale</span>
+              {% elif log.adjustment_type == 'refund' %}<span class="label label-success">Refund</span>
+              {% elif log.adjustment_type == 'stock_in' %}<span class="label label-info">Stock In</span>
+              {% elif log.adjustment_type == 'stock_out' %}<span class="label label-warning">Stock Out</span>
+              {% elif log.adjustment_type == 'adjustment' %}<span class="label label-primary">Adjust</span>
+              {% else %}<span class="label label-default">Initial</span>{% endif %}
+            </td>
+            <td style="font-weight:bold;">{% if log.quantity > 0 %}+{% endif %}{{ log.quantity }}</td>
+            <td>{{ log.balance_after }}</td>
+            <td style="font-size:12px;">{{ log.reason }} {% if log.reference %}({{ log.reference }}){% endif %}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

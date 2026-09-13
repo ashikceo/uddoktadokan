@@ -1,5 +1,6 @@
 {% for item in nav_items %}
-{% if item.login_required and not user.is_authenticated %}
+{% if not item.show_desktop %}
+{% elif item.login_required and not user.is_authenticated %}
 {% elif item.logout_required and user.is_authenticated %}
 {% else %}
 <li>

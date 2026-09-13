@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: uddoktar_dokan
       POSTGRES_USER: uddoktar
-      POSTGRES_PASSWORD: uddoktar_pass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uddoktar_placeholder}
     restart: unless-stopped
 
   redis:
@@ -26,7 +26,7 @@ services:
       DJANGO_DEBUG: "False"
       DJANGO_ALLOWED_HOSTS: localhost,uddoktardokan.com
       DJANGO_CSRF_TRUSTED_ORIGINS: https://uddoktardokan.com
-      DATABASE_URL: postgres://uddoktar:uddoktar_pass@db:5432/uddoktar_dokan
+      DATABASE_URL: postgres://uddoktar:${POSTGRES_PASSWORD:-uddoktar_placeholder}@db:5432/uddoktar_dokan
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
     depends_on:
@@ -42,7 +42,7 @@ services:
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: "False"
-      DATABASE_URL: postgres://uddoktar:uddoktar_pass@db:5432/uddoktar_dokan
+      DATABASE_URL: postgres://uddoktar:${POSTGRES_PASSWORD:-uddoktar_placeholder}@db:5432/uddoktar_dokan
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/1
     depends_on:

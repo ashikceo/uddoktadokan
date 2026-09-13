@@ -1,457 +1,678 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'fonten_app/css/indexcss.css' %}">
+<style>
+.sidebar-random-box{background:#fff;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,0.08);overflow:hidden}
+.sidebar-random-box .block-title{font-size:16px;font-weight:700;border-bottom:2px solid #e74847;padding:12px 15px;margin:0;color:#333}
+.sidebar-random-box .block-title.offers-title{text-align:center;font-size:15px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#e74847;border-bottom:none;padding:12px 15px 8px;background:linear-gradient(180deg,transparent 0%,rgba(231,72,71,0.06) 100%);position:relative}
+.sidebar-random-box .block-title.offers-title::after{content:'';display:block;width:60px;height:3px;background:linear-gradient(90deg,#e74847,#ff8a80);border-radius:2px;margin:6px auto 0}
+.sidebar-product-list{max-height:260px;overflow:hidden;position:relative}
+.sidebar-product-scroll{animation:scrollProductsUp 15s linear infinite}
+.sidebar-product-scroll:hover{animation-play-state:paused}
+@keyframes scrollProductsUp{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
+.sidebar-product-item{display:flex;gap:10px;padding:10px 15px;border-bottom:1px solid #f0f0f0;transition:background 0.2s}
+.sidebar-product-item:hover{background:#f9f9f9}
+.sidebar-product-item img{width:60px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0}
+.sidebar-product-item .sp-info{flex:1;min-width:0}
+.sidebar-product-item .sp-name{display:block;font-size:13px;color:#333;text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-product-item .sp-name:hover{color:#e74847}
+.sidebar-product-item .sp-price{display:block;color:#e74847;font-size:14px;font-weight:700;margin-top:2px}
+.home-tab .products-grid .item{width:26.5%;margin-left:-1%;margin-right:-1%}
+@media(max-width:991px){.home-tab .products-grid .item{width:31.33%}}
+@media(max-width:767px){.home-tab .products-grid .item{width:48%}}
+</style>
+{% endblock %}
+
 {% block content %}
-<!-- Slider -->
-<div class="container" style="margin-top:20px;">
-<div style="border:1px solid #eee; padding:0; border-radius:6px; overflow:hidden;">
-<div class="slider">
-    {% for slider in sliders %}
-    <div class="slide" style="display:none;">
-        <div class="slide-image-wrapper">
-            <img src="{{ slider.image.url }}" alt="{{ slider.title }}" onerror="this.style.display='none'">
-            <div class="slide-overlay">
-                <div class="slide-content">
-                    {% if slider.title %}
-                    <h2 class="slide-title">{{ slider.title }}</h2>
-                    {% endif %}
-                    {% if slider.subtitle %}
-                    <p class="slide-subtitle">{{ slider.subtitle }}</p>
-                    {% endif %}
-                    {% if slider.link_url %}
-                    <a href="{% if '://' in slider.link_url or slider.link_url|first == '/' %}{{ slider.link_url }}{% else %}{% url 'shop_grid' %}{% endif %}" class="btn btn-slide">Click for Partner</a>
-                    {% else %}
-                    <a href="{% url 'shop_grid' %}" class="btn btn-slide">Click for Partner</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-    {% empty %}
-    <div class="slide" style="display:block;">
-        <div class="slide-image-wrapper">
-            <div class="slide-overlay" style="position:relative; min-height:400px; background:linear-gradient(135deg, #e74847, #cb3231);">
-                <div class="slide-content">
-                    <h2 class="slide-title">Welcome to our Store</h2>
-                    <p class="slide-subtitle">Add sliders from the admin panel</p>
-                    <a href="{% url 'shop_grid' %}" class="btn btn-slide">Shop Now</a>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-    <div class="slider-nav">
-        {% for slider in sliders %}
-        <span onclick="currentSlide({{ forloop.counter }})"></span>
-        {% endfor %}
-    </div>
-</div>
-</div>
-</div>
-
-<!-- Features -->
-<div class="features">
-    <div class="container">
-        <div class="row">
-            <div class="col-4">
-                <div class="feature-box feature-shipping">
-                    <i class="fa fa-truck"></i>
-                    <div class="feature-text">
-                        <h4>Free Shipping</h4>
-                        <p>Cash on Delivery</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-4">
-                <div class="feature-box feature-money">
-                    <i class="fa fa-undo"></i>
-                    <div class="feature-text">
-                        <h4>Money Back</h4>
-                        <p>30 Day Money Back Guarantee.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-4">
-                <div class="feature-box feature-sale">
-                    <i class="fa fa-tags"></i>
-                    <div class="feature-text">
-                        <h4>Special Sale</h4>
-                        <p>All items-sale up to 25% off</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-
-<div class="container">
+<div class="home-sections">
+<!-- Mobile order: 1=slider, 2=banners, 3=categories, 4=tabbed, 5=partner, 6=blog/video, 7=partner-hot, 8=promo, 9=brands -->
+<!-- Main Slider Area -->
+<div class="main-slider-area home-order-1">
+  <div class="container">
     <div class="row">
-        <div class="products-main">
-            <h3 class="section-title">All Over Available Product</h3>
-            <div class="product-tabs">
-                <div class="tab-nav">
-                    <button class="active" data-tab="tab-all">All</button>
-                    <button data-tab="tab-new">New</button>
-                    <button data-tab="tab-discounted">Discounted</button>
-                    <button data-tab="tab-hot">Hot Item</button>
-                </div>
-                <div id="tab-all" class="tab-content active">
-                    <div class="product-grid">
-                        {% for product in products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No products available.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div id="tab-new" class="tab-content">
-                    <div class="product-grid">
-                        {% for product in new_products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No new products.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div id="tab-discounted" class="tab-content">
-                    <div class="product-grid">
-                        {% for product in discounted_products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No discounted products.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div id="tab-hot" class="tab-content">
-                    <div class="product-grid">
-                        {% for product in hot_products %}
-                        {% include 'store/product_card.html' %}
-                        {% empty %}
-                        <p>No hot items.</p>
-                        {% endfor %}
-                    </div>
-                </div>
+      <div class="col-md-12 col-xs-12">
+        <div class="main-slider">
+          <div class="slider">
+            <div id="mainSlider" class="nivoSlider slider-image">
+              {% for slider in sliders %}
+              <img src="{{ slider.image.url }}" alt="{{ slider.title }}" title="#htmlcaption{{ forloop.counter }}"/>
+              {% empty %}
+              <img src="{% static 'fonten_app/images/slider/banarpic01.png' %}" alt="main slider"/>
+              <img src="{% static 'fonten_app/images/slider/banarpic02.png' %}" alt="main slider"/>
+              {% endfor %}
             </div>
+          </div>
         </div>
-        <div class="products-side">
-            <h3 class="section-title">Random product list</h3>
-            <div class="product-list-vertical">
-                <div class="product-scroll-track">
-                {% for product in latest_products %}
-                <div class="product-list-item">
-                    <a href="{% url 'product_detail' product.slug %}">
-                        {% if product.image %}
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                        <img src="/static/img/placeholder_60x60.png" alt="{{ product.name }}">
-                        {% endif %}
-                    </a>
-                    <div>
-                        <a href="{% url 'product_detail' product.slug %}">{{ product.name|truncatechars:30 }}</a>
-                        <span class="price">৳ {{ product.price }}</span>
-                    </div>
-                </div>
-                {% empty %}
-                <p>No products.</p>
-                {% endfor %}
-                {% for product in latest_products %}
-                <div class="product-list-item">
-                    <a href="{% url 'product_detail' product.slug %}">
-                        {% if product.image %}
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                        <img src="/static/img/placeholder_60x60.png" alt="{{ product.name }}">
-                        {% endif %}
-                    </a>
-                    <div>
-                        <a href="{% url 'product_detail' product.slug %}">{{ product.name|truncatechars:30 }}</a>
-                        <span class="price">৳ {{ product.price }}</span>
-                    </div>
-                </div>
-                {% endfor %}
-                </div>
-            </div>
-            {% if side_banners %}
-            <div class="side-banners">
-                {% for banner in side_banners %}
-                <div class="side-banner">
-                    <a href="{% if banner.link_url %}{{ banner.link_url }}{% else %}#{% endif %}">
-                        <img src="{{ banner.image.url }}" alt="{{ banner.title }}">
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
+        <style>
+          .main-slider,.slider,.nivoSlider{width:100%;max-width:100%;overflow:hidden}
+          .nivoSlider img{width:100%!important;height:auto!important;display:block;object-fit:cover}
+          @media(max-width:768px){.main-slider{margin:0;padding:0}.nivoSlider{height:auto!important}.nivoSlider img{max-height:260px;object-fit:cover}}
+        </style>
+      </div>
     </div>
+  </div>
 </div>
+<!-- End Main Slider Area -->
+
+<!-- Category Section -->
+<div class="container mt-5 mb-5 home-order-3">
+  <div class="category-section">
+    <div class="category-heading position-relative text-center">
+      <div style="display:flex; justify-content:center; gap:20px; align-items:center;">
+        {% if page_settings.show_b2b_b2c_buttons %}
+        <a href="{% if page_settings.b2b_url %}{{ page_settings.b2b_url }}{% else %}{% url 'shop_grid' %}{% endif %}" class="b2b-btn"><i class="{{ page_settings.b2b_icon }}"></i> {{ page_settings.b2b_button_text }}</a>
+        <a href="{% if page_settings.b2c_url %}{{ page_settings.b2c_url }}{% else %}{% url 'shop_grid' %}{% endif %}" class="b2c-btn"><i class="{{ page_settings.b2c_icon }}"></i> {{ page_settings.b2c_button_text }}</a>
+        {% endif %}
+      </div>
+      <div class="heading-line"><span></span></div>
+    </div>
+
+    <!-- Product Search -->
+    <div class="product-search-area">
+      <form method="GET" action="{% url 'shop_grid' %}" class="product-search-form">
+        <div class="search-input-wrapper">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" name="q" class="product-search-input" placeholder="{{ search_placeholder }}..." autocomplete="off">
+          <button type="submit" class="product-search-btn"><i class="fa fa-search"></i> <span>Search</span></button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Category Menu Bar -->
+    <div class="category-menu-bar">
+      {% for category in categories %}
+      <div class="cat-item-wrapper">
+        <a href="{% url 'shop_grid' %}?category={{ category.id }}" class="cat-button">
+          {% if category.image %}
+          <span class="cat-image-box"><img src="{{ category.image.url }}" alt="{{ category.name }}" class="cat-icon-small"></span>
+          {% else %}
+          <span class="cat-image-box no-image"><i class="fa fa-th-large"></i></span>
+          {% endif %}
+          <span class="cat-name">{{ category.name }}</span>
+          {% if category.children.all %}
+          <span class="cat-arrow"><i class="fa fa-angle-down"></i></span>
+          {% endif %}
+        </a>
+        {% if category.children.all %}
+        <ul class="cat-dropdown">
+          <li class="dropdown-title">{{ category.name }}</li>
+          {% for sub in category.children.all %}
+          <li>
+            <a href="{% url 'shop_grid' %}?category={{ sub.id }}">
+              <span class="sub-icon"><i class="fa fa-angle-right"></i></span>
+              <span>{{ sub.name }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      {% empty %}
+      <div class="cat-item-wrapper">
+        <a href="{% url 'shop_grid' %}" class="cat-button">
+          <span class="cat-image-box no-image"><i class="fa fa-th-large"></i></span>
+          <span class="cat-name">All Products</span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- All Over Available Product -->
+{% if page_settings.show_tabbed_products %}
+<div class="main-container col2-left-layout home-order-4">
+  <div class="container">
+    <div class="row">
+      <div class="col-main col-md-9 col-sm-8 col-xs-12">
+        <div class="home-tab">
+          <div class="tab-info">
+            <h3 class="new-product-title pull-left">{{ page_settings.products_heading }}</h3>
+            <ul class="nav home-nav-tabs home-product-tabs">
+              <li class="active"><a href="#all" data-toggle="tab">{{ page_settings.tab_all_label }}</a></li>
+              <li><a href="#new" data-toggle="tab">{{ page_settings.tab_new_label }}</a></li>
+              <li><a href="#discounted" data-toggle="tab">{{ page_settings.tab_discounted_label }}</a></li>
+              <li><a href="#hot" data-toggle="tab">{{ page_settings.tab_hot_label }}</a></li>
+            </ul>
+          </div>
+          <div class="tab-content">
+            <div id="all" class="tab-pane active">
+              <div class="product-grid-area">
+                <ul class="products-grid row">
+                  {% for product in products %}
+                  <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
+                    {% include 'store/product_card.html' %}
+                  </li>
+                  {% empty %}
+                  <li class="col-xs-12"><p>No products available.</p></li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+            <div id="new" class="tab-pane">
+              <div class="product-grid-area">
+                <ul class="products-grid row">
+                  {% for product in new_products %}
+                  <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
+                    {% include 'store/product_card.html' %}
+                  </li>
+                  {% empty %}
+                  <li class="col-xs-12"><p>No new products.</p></li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+            <div id="discounted" class="tab-pane">
+              <div class="product-grid-area">
+                <ul class="products-grid row">
+                  {% for product in discounted_products %}
+                  <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
+                    {% include 'store/product_card.html' %}
+                  </li>
+                  {% empty %}
+                  <li class="col-xs-12"><p>No discounted products.</p></li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+            <div id="hot" class="tab-pane">
+              <div class="product-grid-area">
+                <ul class="products-grid row">
+                  {% for product in hot_products %}
+                  <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
+                    {% include 'store/product_card.html' %}
+                  </li>
+                  {% empty %}
+                  <li class="col-xs-12"><p>No hot items.</p></li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="homeSidebar1">
+        {% if page_settings.show_random_product %}
+        <div class="sidebar-random-box">
+          <div class="block-title"><i class="fa fa-list"></i> {{ page_settings.random_list_heading }}</div>
+          <div class="sidebar-product-list">
+            <div class="sidebar-product-scroll">
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if sidebar_sliders_1 %}
+        <div class="sidebar-random-box home-sidebar-slider-box" style="margin-top:15px;">
+          <div class="block-title offers-title">Offers</div>
+          <div class="home-sidebar-slider" style="position:relative; height:220px; overflow:hidden;">
+            {% for slide in sidebar_sliders_1 %}
+            <div class="home-side-slide" style="{% if not forloop.first %}display:none;{% endif %} position:absolute; top:0; left:0; width:100%; height:100%;">
+              {% if slide.link_url %}<a href="{{ slide.link_url }}" style="display:block; width:100%; height:100%;">{% endif %}
+                <img src="{{ slide.image.url }}" alt="{{ slide.title }}" style="width:100%; height:100%; object-fit:contain; display:block; background:#f5f5f5;">
+                {% if slide.title %}
+                <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:8px 10px; color:#fff; font-size:12px; font-weight:600;">{{ slide.title }}</div>
+                {% endif %}
+              {% if slide.link_url %}</a>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if sidebar_banners_1 %}
+        <div style="margin-top:10px;">
+          {% for b in sidebar_banners_1 %}
+          <a href="{% if b.link_url %}{{ b.link_url }}{% else %}#{% endif %}" style="display:block; margin-bottom:8px;">
+            <img src="{{ b.image.url }}" alt="{{ b.title }}" style="width:100%; border-radius:6px; object-fit:contain; max-height:200px; background:#f5f5f5;">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- All Partner Product -->
-<div class="container">
-    <h3 class="section-title">All Partner Product</h3>
-    <div class="product-grid">
-        {% for product in partner_products %}
-        {% include 'store/product_card.html' %}
-        {% empty %}
-        <p>No partner products available.</p>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- BEST SELLING PRODUCT -->
-<div class="container">
+{% if page_settings.show_partner_products %}
+<div class="main-container col2-left-layout home-order-5">
+  <div class="container">
     <div class="row">
-        <div class="products-main">
-            <h3 class="section-title">BEST SELLING PRODUCT</h3>
-            <div class="product-grid">
-                {% for product in best_selling_products %}
+      <div class="col-main col-md-9 col-sm-8 col-xs-12">
+        <div class="home-tab">
+          <div class="tab-info">
+            <h3 class="new-product-title pull-left">{{ page_settings.partner_products_heading }}</h3>
+          </div>
+          <div class="heading-line" style="border-bottom:1px solid #e0e0e0; margin-bottom:20px; clear:both;"><span></span></div>
+          <div class="product-grid-area">
+            <ul class="products-grid row">
+              {% for product in partner_products %}
+              <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
                 {% include 'store/product_card.html' %}
-                {% empty %}
-                <p>No products available.</p>
-                {% endfor %}
-            </div>
+              </li>
+              {% empty %}
+              <li class="col-xs-12"><p>No partner products available.</p></li>
+              {% endfor %}
+            </ul>
+          </div>
         </div>
-        <div class="products-side">
-            <h3 class="section-title">Random product list</h3>
-            <div class="product-list-vertical">
-                <div class="product-scroll-track">
-                {% for product in latest_products %}
-                <div class="product-list-item">
-                    <a href="{% url 'product_detail' product.slug %}">
-                        {% if product.image %}
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                        <img src="/static/img/placeholder_60x60.png" alt="{{ product.name }}">
-                        {% endif %}
-                    </a>
-                    <div>
-                        <a href="{% url 'product_detail' product.slug %}">{{ product.name|truncatechars:30 }}</a>
-                        <span class="price">৳ {{ product.price }}</span>
-                    </div>
-                </div>
-                {% empty %}
-                <p>No products.</p>
-                {% endfor %}
-                {% for product in latest_products %}
-                <div class="product-list-item">
-                    <a href="{% url 'product_detail' product.slug %}">
-                        {% if product.image %}
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                        <img src="/static/img/placeholder_60x60.png" alt="{{ product.name }}">
-                        {% endif %}
-                    </a>
-                    <div>
-                        <a href="{% url 'product_detail' product.slug %}">{{ product.name|truncatechars:30 }}</a>
-                        <span class="price">৳ {{ product.price }}</span>
-                    </div>
-                </div>
-                {% endfor %}
-                </div>
-            </div>
-            {% if side_banners %}
-            <div class="side-banners">
-                {% for banner in side_banners %}
-                <div class="side-banner">
-                    <a href="{% if banner.link_url %}{{ banner.link_url }}{% else %}#{% endif %}">
-                        <img src="{{ banner.image.url }}" alt="{{ banner.title }}">
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-<!-- New Arrival Blog Posts -->
-<div class="container mobile-hide-new-arrival">
-    <h3 class="section-title">New Arrival Product</h3>
-    <div class="row">
-        <div class="col-6">
-            <div class="blog-grid">
-                <div class="blog-scroll-track">
-                    {% for post in blog_posts %}
-                    <div class="blog-card">
-                        <div class="blog-image">
-                            <a href="{% url 'blog_detail' post.slug %}">
-                                {% if post.image %}
-                                <img src="{{ post.image.url }}" alt="{{ post.title }}">
-                                {% else %}
-                                <img src="/static/img/placeholder_300x200.png" alt="{{ post.title }}">
-                                {% endif %}
-                            </a>
-                        </div>
-                        <div class="blog-info">
-                            <h4><a href="{% url 'blog_detail' post.slug %}">{{ post.title }}</a></h4>
-                            <div class="meta">{{ post.created|date:"M. j, Y, g:i A" }} {{ post.views }} {{ post.comments }}</div>
-                            <p>{{ post.excerpt|default:post.content|truncatewords:20 }}</p>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <p>No blog posts yet.</p>
-                    {% endfor %}
-                    {% for post in blog_posts %}
-                    <div class="blog-card">
-                        <div class="blog-image">
-                            <a href="{% url 'blog_detail' post.slug %}">
-                                {% if post.image %}
-                                <img src="{{ post.image.url }}" alt="{{ post.title }}">
-                                {% else %}
-                                <img src="/static/img/placeholder_300x200.png" alt="{{ post.title }}">
-                                {% endif %}
-                            </a>
-                        </div>
-                        <div class="blog-info">
-                            <h4><a href="{% url 'blog_detail' post.slug %}">{{ post.title }}</a></h4>
-                            <div class="meta">{{ post.created|date:"M. j, Y, g:i A" }} {{ post.views }} {{ post.comments }}</div>
-                            <p>{{ post.excerpt|default:post.content|truncatewords:20 }}</p>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        <div class="col-6">
-            {% for banner in home_banners %}
-            <div class="home-banner">
-                <a href="{% if banner.link_url %}{{ banner.link_url }}{% else %}#{% endif %}">
-                    <img src="{{ banner.image.url }}" alt="{{ banner.title }}">
+      </div>
+      <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="homeSidebar2">
+        {% if page_settings.show_random_product %}
+        <div class="sidebar-random-box">
+          <div class="block-title"><i class="fa fa-list"></i> {{ page_settings.random_list_heading }}</div>
+          <div class="sidebar-product-list">
+            <div class="sidebar-product-scroll">
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
                 </a>
-            </div>
-            {% empty %}
-            <div class="home-banner">
-                <a href="#">
-                    <img src="/static/img/placeholder_600x400.png" alt="Banner" style="width:100%;">
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
                 </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if sidebar_sliders_2 %}
+        <div class="sidebar-random-box" style="margin-top:15px;">
+          <div class="block-title offers-title">Offers</div>
+          <div class="home-sidebar-slider" style="position:relative; height:220px; overflow:hidden;">
+            {% for slide in sidebar_sliders_2 %}
+            <div class="home-side-slide" style="{% if not forloop.first %}display:none;{% endif %} position:absolute; top:0; left:0; width:100%; height:100%;">
+              {% if slide.link_url %}<a href="{{ slide.link_url }}" style="display:block; width:100%; height:100%;">{% endif %}
+                <img src="{{ slide.image.url }}" alt="{{ slide.title }}" style="width:100%; height:100%; object-fit:contain; display:block; background:#f5f5f5;">
+                {% if slide.title %}
+                <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:8px 10px; color:#fff; font-size:12px; font-weight:600;">{{ slide.title }}</div>
+                {% endif %}
+              {% if slide.link_url %}</a>{% endif %}
             </div>
             {% endfor %}
+          </div>
         </div>
+        {% endif %}
+        {% if sidebar_banners_2 %}
+        <div style="margin-top:10px;">
+          {% for b in sidebar_banners_2 %}
+          <a href="{% if b.link_url %}{{ b.link_url }}{% else %}#{% endif %}" style="display:block; margin-bottom:8px;">
+            <img src="{{ b.image.url }}" alt="{{ b.title }}" style="width:100%; border-radius:6px; object-fit:contain; max-height:200px; background:#f5f5f5;">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
+{% endif %}
 
-<!-- All Partner Lists -->
-<div class="container mobile-hide-partner-lists">
-    <div class="page-header"><h3 class="section-title">All Partner Lists</h3></div>
-    <div class="partner-scroll">
-        <div class="partner-scroll-track">
-            {% for partner in partners %}
-            <a href="{% url 'partner_detail' partner.slug %}" class="partner-card">
-                {% if partner.logo %}
-                <img src="{{ partner.logo.url }}" alt="{{ partner.name }}">
-                {% else %}
-                <img src="/static/img/placeholder_180x100.png" alt="{{ partner.name }}">
-                {% endif %}
-                <h4>{{ partner.name }}</h4>
-                <p>{{ partner.description|truncatewords:10 }}</p>
+<!-- New Arrival Blog Slider + Video -->
+<div class="container home-order-6" style="margin-top:30px;">
+  <div class="row">
+    {% if page_settings.show_blog_marquee %}
+    <div class="col-md-6 col-sm-6 col-xs-12">
+      <h3 class="new-product-title">{{ page_settings.new_arrival_heading }}</h3>
+      {% if blog_posts %}
+      <style>
+      .blog-marquee{overflow:hidden;position:relative;border-radius:8px;padding:10px 0}
+      .blog-marquee::before,.blog-marquee::after{content:'';position:absolute;top:0;bottom:0;width:56px;z-index:2;pointer-events:none}
+      .blog-marquee::before{left:0;background:linear-gradient(90deg,#fff 0%,rgba(255,255,255,0) 100%)}
+      .blog-marquee::after{right:0;background:linear-gradient(270deg,#fff 0%,rgba(255,255,255,0) 100%)}
+      .blog-marquee-track{display:flex;align-items:center;width:max-content;animation:blogMarquee 35s linear infinite;will-change:transform}
+      .blog-marquee:hover .blog-marquee-track{animation-play-state:paused}
+      .blog-mcard{flex:0 0 auto;width:320px;margin:0 14px;border-radius:8px;overflow:hidden;position:relative;background:#f0efef;box-shadow:0 1px 5px rgba(0,0,0,0.08)}
+      .blog-mcard a{display:block;position:relative;height:205px}
+      .blog-mcard img{width:100%;height:100%;object-fit:cover;display:block}
+      .blog-mcard-caption{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.78));padding:36px 14px 12px;color:#fff;text-align:left}
+      .blog-mcard-caption .t{font-size:14px;font-weight:700;line-height:1.3;color:#fff}
+      .blog-mcard-caption .d{font-size:11px;color:#ccc;margin-top:5px}
+      .blog-mcard-caption .d i{color:#e74847}
+      @keyframes blogMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+      @media(max-width:767px){.blog-mcard{width:230px}.blog-mcard a{height:140px}.blog-mcard-caption .t{font-size:13px}}
+      @media(prefers-reduced-motion:reduce){.blog-marquee-track{animation:none}}
+      </style>
+      <div class="blog-marquee">
+        <div class="blog-marquee-track">
+          {% for post in blog_posts %}
+          <div class="blog-mcard">
+            <a href="{% url 'blog_detail' post.slug %}">
+              {% if post.image %}<img src="{{ post.image.url }}" alt="{{ post.title }}">{% endif %}
+              <div class="blog-mcard-caption">
+                <div class="t">{{ post.title }}</div>
+                <div class="d"><i class="fa fa-calendar"></i> {{ post.created|date:"M. j, Y" }} <span style="margin-left:8px;"><i class="fa fa-comment"></i> {{ post.comments }}</span></div>
+              </div>
             </a>
-            {% endfor %}
-            {% for partner in partners %}
-            <a href="{% url 'partner_detail' partner.slug %}" class="partner-card">
-                {% if partner.logo %}
-                <img src="{{ partner.logo.url }}" alt="{{ partner.name }}">
-                {% else %}
-                <img src="/static/img/placeholder_180x100.png" alt="{{ partner.name }}">
-                {% endif %}
-                <h4>{{ partner.name }}</h4>
-                <p>{{ partner.description|truncatewords:10 }}</p>
+          </div>
+          {% endfor %}
+          {% for post in blog_posts %}
+          <div class="blog-mcard">
+            <a href="{% url 'blog_detail' post.slug %}">
+              {% if post.image %}<img src="{{ post.image.url }}" alt="{{ post.title }}">{% endif %}
+              <div class="blog-mcard-caption">
+                <div class="t">{{ post.title }}</div>
+                <div class="d"><i class="fa fa-calendar"></i> {{ post.created|date:"M. j, Y" }} <span style="margin-left:8px;"><i class="fa fa-comment"></i> {{ post.comments }}</span></div>
+              </div>
             </a>
-            {% endfor %}
+          </div>
+          {% endfor %}
         </div>
+      </div>
+      {% else %}
+      <div style="margin-top:20px; padding:30px; border-radius:8px; background:#f5f5f5; color:#aaa; text-align:center;">No blog posts yet.</div>
+      {% endif %}
     </div>
-</div>
-
-<!-- Promo Offers Full Width -->
-<div class="promo-offers-wrap">
-    <div class="promo-offers-grid">
-        <div class="promo-offer-box promo-offer-box--track">
-            <h3>Buy 2 items</h3>
-            <p>Get one for free!</p>
+    {% endif %}
+    {% if page_settings.show_videos %}
+    <div class="col-md-6 col-sm-6 col-xs-12">
+      <h3 class="new-product-title">{{ page_settings.videos_heading }}</h3>
+      <div class="video-area" style="margin-top:20px;">
+        <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;">
+          <iframe src="{% if page_settings.home_video_embed %}{{ page_settings.home_video_embed }}{% else %}https://www.youtube.com/embed/q73R90FJZdQ?rel=0{% endif %}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
         </div>
-        <div class="promo-offer-box promo-offer-box--track">
-            <h3>Daily Sales</h3>
-            <p>Today up to 45% off!</p>
-        </div>
-        <div class="promo-offer-box promo-offer-box--track">
-            <h3>NEW ARRIVAL</h3>
-            <p>Sale up to 75% off</p>
-        </div>
-        <div class="promo-offer-box promo-offer-box--track">
-            <h3>100% Authentic</h3>
-            <p>Pure & Natural</p>
-        </div>
+      </div>
     </div>
+    {% endif %}
+  </div>
 </div>
-
-<script>
-document.querySelectorAll('.promo-offer-box--track').forEach(function(box) {
-    box.addEventListener('mousemove', function(e) {
-        var rect = this.getBoundingClientRect();
-        var x = (e.clientX - rect.left) / rect.width;
-        var y = (e.clientY - rect.top) / rect.height;
-
-        this.style.transition = 'none';
-        this.style.transform = 'perspective(1000px) rotateX(' + ((y - 0.5) * -16) + 'deg) rotateY(' + ((x - 0.5) * 16) + 'deg)';
-        this.style.setProperty('--spot-x', (x * 100) + '%');
-        this.style.setProperty('--spot-y', (y * 100) + '%');
-
-        var tx = (x - 0.5) * 8;
-        var ty = (y - 0.5) * 8;
-        var h3 = this.querySelector('h3');
-        var p = this.querySelector('p');
-        if (h3) { h3.style.transition = 'none'; h3.style.transform = 'translate(' + (-tx) + 'px,' + (-ty) + 'px)'; }
-        if (p)  { p.style.transition = 'none';  p.style.transform = 'translate(' + (-tx * 0.6) + 'px,' + (-ty * 0.6) + 'px)'; }
-    });
-
-    box.addEventListener('mouseleave', function() {
-        this.style.transition = 'transform 0.4s ease-out';
-        this.style.transform = '';
-        this.style.setProperty('--spot-x', '50%');
-        this.style.setProperty('--spot-y', '50%');
-
-        var h3 = this.querySelector('h3');
-        var p = this.querySelector('p');
-        if (h3) { h3.style.transition = 'transform 0.4s ease-out'; h3.style.transform = ''; }
-        if (p)  { p.style.transition = 'transform 0.4s ease-out'; p.style.transform = ''; }
-    });
-});
-</script>
 
 <!-- All Partner Hot Products -->
-<div class="container">
-    <h3 class="section-title">All Patnar Hot Products</h3>
-    <div class="product-grid">
-        {% for product in hot_products %}
-        {% include 'store/product_card.html' %}
-        {% empty %}
-        <p>No hot products.</p>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- Brands -->
-<div class="brands">
-    <div class="container">
-        <div class="brand-slider">
-            <div class="brand-slider-track">
-                <img src="{% static 'fonten_app/images/brand1.png' %}" alt="Brand 1">
-                <img src="{% static 'fonten_app/images/brand2.png' %}" alt="Brand 2">
-                <img src="{% static 'fonten_app/images/brand3.png' %}" alt="Brand 3">
-                <img src="{% static 'fonten_app/images/brand4.png' %}" alt="Brand 4">
-                <img src="{% static 'fonten_app/images/brand5.png' %}" alt="Brand 5">
-                <img src="{% static 'fonten_app/images/brand6.png' %}" alt="Brand 6">
-                <img src="{% static 'fonten_app/images/brand7.png' %}" alt="Brand 7">
-                <img src="{% static 'fonten_app/images/brand1.png' %}" alt="Brand 1">
-                <img src="{% static 'fonten_app/images/brand2.png' %}" alt="Brand 2">
-                <img src="{% static 'fonten_app/images/brand3.png' %}" alt="Brand 3">
-                <img src="{% static 'fonten_app/images/brand4.png' %}" alt="Brand 4">
-                <img src="{% static 'fonten_app/images/brand5.png' %}" alt="Brand 5">
-                <img src="{% static 'fonten_app/images/brand6.png' %}" alt="Brand 6">
-                <img src="{% static 'fonten_app/images/brand7.png' %}" alt="Brand 7">
-            </div>
+{% if page_settings.show_partner_hot_products %}
+<div class="main-container col2-left-layout home-order-7" style="margin-top:30px;">
+  <div class="container">
+    <div class="row">
+      <div class="col-main col-md-9 col-sm-8 col-xs-12">
+        <div class="home-tab">
+          <div class="tab-info">
+            <h3 class="new-product-title pull-left">{{ page_settings.partner_hot_products_heading }}</h3>
+          </div>
+          <div class="heading-line" style="border-bottom:1px solid #e0e0e0; margin-bottom:20px; clear:both;"><span></span></div>
+          <div class="product-grid-area">
+            <ul class="products-grid row">
+              {% for product in hot_products %}
+              <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
+                {% include 'store/product_card.html' %}
+              </li>
+              {% empty %}
+              <li class="col-xs-12"><p>No hot products.</p></li>
+              {% endfor %}
+            </ul>
+          </div>
         </div>
+      </div>
+      <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="homeSidebar3">
+        {% if page_settings.show_random_product %}
+        <div class="sidebar-random-box">
+          <div class="block-title"><i class="fa fa-list"></i> {{ page_settings.random_list_heading }}</div>
+          <div class="sidebar-product-list">
+            <div class="sidebar-product-scroll">
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+              {% for product in latest_products %}
+              <div class="sidebar-product-item">
+                <a href="{% url 'product_detail' product.slug %}">
+                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+                </a>
+                <div class="sp-info">
+                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if sidebar_sliders_3 %}
+        <div class="sidebar-random-box" style="margin-top:15px;">
+          <div class="block-title offers-title">Offers</div>
+          <div class="home-sidebar-slider" style="position:relative; height:220px; overflow:hidden;">
+            {% for slide in sidebar_sliders_3 %}
+            <div class="home-side-slide" style="{% if not forloop.first %}display:none;{% endif %} position:absolute; top:0; left:0; width:100%; height:100%;">
+              {% if slide.link_url %}<a href="{{ slide.link_url }}" style="display:block; width:100%; height:100%;">{% endif %}
+                <img src="{{ slide.image.url }}" alt="{{ slide.title }}" style="width:100%; height:100%; object-fit:contain; display:block; background:#f5f5f5;">
+                {% if slide.title %}
+                <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:8px 10px; color:#fff; font-size:12px; font-weight:600;">{{ slide.title }}</div>
+                {% endif %}
+              {% if slide.link_url %}</a>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if sidebar_banners_3 %}
+        <div style="margin-top:10px;">
+          {% for b in sidebar_banners_3 %}
+          <a href="{% if b.link_url %}{{ b.link_url }}{% else %}#{% endif %}" style="display:block; margin-bottom:8px;">
+            <img src="{{ b.image.url }}" alt="{{ b.title }}" style="width:100%; border-radius:6px; object-fit:contain; max-height:200px; background:#f5f5f5;">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
+{% endif %}
+
+<!-- Bottom Service Boxes -->
+<style>
+.promo-section{padding:40px 0;overflow:hidden}
+.promo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media(max-width:991px){.promo-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:575px){.promo-grid{grid-template-columns:1fr}}
+.promo-card{position:relative;border-radius:16px;padding:30px 20px;text-align:center;overflow:hidden;cursor:pointer;transition:all 0.4s cubic-bezier(0.25,0.8,0.25,1);transform:translateY(0);border:2px solid transparent;background:linear-gradient(135deg,#fff 0%,#fafafa 100%)}
+.promo-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0;transition:height 0.4s ease}
+.promo-card:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(231,72,71,0.15);border-color:rgba(231,72,71,0.2)}
+.promo-card:hover::before{height:100%;opacity:0.06}
+.promo-card:nth-child(1)::before{background:#e74847}
+.promo-card:nth-child(2)::before{background:#ff9800}
+.promo-card:nth-child(3)::before{background:#4caf50}
+.promo-card:nth-child(4)::before{background:#2196f3}
+.promo-card:nth-child(1):hover{border-color:rgba(231,72,71,0.3);box-shadow:0 20px 40px rgba(231,72,71,0.18)}
+.promo-card:nth-child(2):hover{border-color:rgba(255,152,0,0.3);box-shadow:0 20px 40px rgba(255,152,0,0.18)}
+.promo-card:nth-child(3):hover{border-color:rgba(76,175,80,0.3);box-shadow:0 20px 40px rgba(76,175,80,0.18)}
+.promo-card:nth-child(4):hover{border-color:rgba(33,150,243,0.3);box-shadow:0 20px 40px rgba(33,150,243,0.18)}
+.promo-icon{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 15px;font-size:24px;color:#fff;transition:all 0.4s cubic-bezier(0.25,0.8,0.25,1);transform:scale(1) rotate(0deg)}
+.promo-card:hover .promo-icon{transform:scale(1.15) rotate(-5deg)}
+.promo-card:nth-child(1) .promo-icon{background:linear-gradient(135deg,#e74847,#ff6b6b)}
+.promo-card:nth-child(2) .promo-icon{background:linear-gradient(135deg,#ff9800,#ffb74d)}
+.promo-card:nth-child(3) .promo-icon{background:linear-gradient(135deg,#4caf50,#81c784)}
+.promo-card:nth-child(4) .promo-icon{background:linear-gradient(135deg,#2196f3,#64b5f6)}
+.promo-title{font-size:16px;font-weight:800;margin:0 0 6px;color:#222;transition:color 0.3s}
+.promo-card:hover .promo-title{color:#e74847}
+.promo-desc{font-size:13px;color:#777;margin:0;font-weight:500;transition:color 0.3s}
+.promo-card:hover .promo-desc{color:#555}
+.promo-card .promo-ripple{position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(231,72,71,0.1);transform:scale(0);opacity:0;transition:all 0.6s ease;pointer-events:none}
+.promo-card:hover .promo-ripple{transform:scale(1);opacity:1}
+.promo-card:nth-child(2) .promo-ripple{background:rgba(255,152,0,0.1)}
+.promo-card:nth-child(3) .promo-ripple{background:rgba(76,175,80,0.1)}
+.promo-card:nth-child(4) .promo-ripple{background:rgba(33,150,243,0.1)}
+@keyframes promoFadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.promo-card{opacity:0;animation:promoFadeUp 0.6s ease forwards}
+.promo-card:nth-child(1){animation-delay:0.1s}
+.promo-card:nth-child(2){animation-delay:0.2s}
+.promo-card:nth-child(3){animation-delay:0.3s}
+.promo-card:nth-child(4){animation-delay:0.4s}
+</style>
+
+{% if page_settings.show_home_banner and home_banners %}
+<div class="container home-order-2" style="margin-top:30px;">
+  {% for banner in home_banners %}
+  <a href="{% if banner.link_url %}{{ banner.link_url }}{% else %}#{% endif %}" style="display:block; margin-bottom:10px;">
+    <img src="{{ banner.image.url }}" alt="{{ banner.title }}" style="width:100%; border-radius:8px; object-fit:cover; max-height:240px;">
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if page_settings.show_promo_cards %}
+<div class="promo-section home-order-8">
+  <div class="container">
+    <div class="promo-grid">
+      {% for card in promo_cards %}
+      <div class="promo-card">
+        {% if card.link %}<a href="{{ card.link }}" style="display:block; text-decoration:none; color:inherit;">{% endif %}
+        <div class="promo-ripple"></div>
+        <div class="promo-icon"><i class="{{ card.icon }}"></i></div>
+        <div class="promo-title">{{ card.title }}</div>
+        <div class="promo-desc">{{ card.description }}</div>
+        {% if card.link %}</a>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Our Partner Brands Marquee -->
+<style>
+.brand-marquee-section{background:#fff;border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;padding:30px 0 34px;overflow:hidden}
+.brand-marquee-header{text-align:center;margin-bottom:26px}
+.brand-marquee-header h3{font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#222;margin:0;font-family:'Poppins',sans-serif}
+.brand-marquee-header h3::after{content:'';display:block;width:64px;height:3px;background:linear-gradient(90deg,#e74847,#ff8a80);border-radius:2px;margin:10px auto 0}
+.brand-marquee{overflow:hidden;position:relative;padding:8px 0}
+.brand-marquee::before,.brand-marquee::after{content:'';position:absolute;top:0;bottom:0;width:70px;z-index:2;pointer-events:none}
+.brand-marquee::before{left:0;background:linear-gradient(90deg,#fff 0%,rgba(255,255,255,0) 100%)}
+.brand-marquee::after{right:0;background:linear-gradient(270deg,#fff 0%,rgba(255,255,255,0) 100%)}
+.brand-marquee-track{display:flex;align-items:center;width:max-content;animation:brandMarquee 38s linear infinite;will-change:transform}
+.brand-marquee:hover .brand-marquee-track{animation-play-state:paused}
+.brand-marquee-group{display:flex;align-items:center}
+.brand-logo{flex:0 0 auto;width:220px;height:100px;margin:0 20px;display:flex;align-items:center;justify-content:center}
+.brand-logo img{max-width:180px;max-height:100px;width:auto;height:auto;object-fit:contain;display:block}
+@keyframes brandMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media(max-width:767px){.brand-marquee-section{padding:20px 0 24px}.brand-marquee-header h3{font-size:16px}.brand-logo{width:160px;height:72px;margin:0 12px}.brand-logo img{max-width:130px;max-height:72px}}
+@media(prefers-reduced-motion:reduce){.brand-marquee-track{animation:none}}
+</style>
+{% if page_settings.show_brand_marquee %}
+<div class="brand-marquee-section home-order-9">
+  <div class="container">
+    <div class="brand-marquee-header"><h3>{{ page_settings.brands_heading }}</h3></div>
+    <div class="brand-marquee">
+      <div class="brand-marquee-track">
+        {% for dup in "12" %}
+        <div class="brand-marquee-group">
+          {% for logo in brand_logos %}
+          {% if logo.link %}<a href="{{ logo.link }}" class="brand-logo">{% else %}<div class="brand-logo">{% endif %}
+            <img src="{{ logo.image.url }}" alt="{{ logo.name }}" title="{{ logo.name }}">
+          {% if logo.link %}</a>{% else %}</div>{% endif %}
+          {% empty %}
+          <div class="brand-logo"><img src="{% static 'fonten_app/images/brand1.png' %}" alt="Brand"></div>
+          <div class="brand-logo"><img src="{% static 'fonten_app/images/brand2.png' %}" alt="Brand"></div>
+          <div class="brand-logo"><img src="{% static 'fonten_app/images/brand3.png' %}" alt="Brand"></div>
+          <div class="brand-logo"><img src="{% static 'fonten_app/images/brand4.png' %}" alt="Brand"></div>
+          <div class="brand-logo"><img src="{% static 'fonten_app/images/brand5.png' %}" alt="Brand"></div>
+          <div class="brand-logo"><img src="{% static 'fonten_app/images/brand6.png' %}" alt="Brand"></div>
+          <div class="brand-logo"><img src="{% static 'fonten_app/images/brand7.png' %}" alt="Brand"></div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+// Hover-switch for All Over Available Product tabs
+if (window.jQuery) {
+$(document).ready(function() {
+  var homeTabLinks = $('.home-product-tabs li a');
+  homeTabLinks.on('mouseenter', function() {
+    $(this).tab('show');
+  });
+});
+}
+
+// Sidebar height match — sidebar matches left product area height
+// Excess banners auto-hide when sidebar content exceeds product area
+(function(){
+  function matchHomeSidebars(){
+    for(var i=1;i<=3;i++){
+      var sb=document.getElementById('homeSidebar'+i);
+      if(sb){
+        var row=sb.closest('.row');
+        if(row){
+          var productCol=row.querySelector('.col-md-9');
+          if(productCol){
+            sb.style.maxHeight=productCol.offsetHeight+'px';
+            sb.style.overflow='hidden';
+          }
+        }
+      }
+    }
+  }
+  matchHomeSidebars();
+  window.addEventListener('load',matchHomeSidebars);
+  window.addEventListener('resize',matchHomeSidebars);
+})();
+
+// Home sidebar slider auto-slide (same as partner store logic)
+(function(){
+  var sliders=document.querySelectorAll('.home-sidebar-slider');
+  sliders.forEach(function(slider){
+    var slides=slider.querySelectorAll('.home-side-slide');
+    if(slides.length<=1) return;
+    var c=0;
+    setInterval(function(){
+      slides[c].style.display='none';
+      c=(c+1)%slides.length;
+      slides[c].style.display='block';
+      slides[c].style.opacity='0';
+      slides[c].offsetHeight;
+      slides[c].style.transition='opacity 1s ease-in';
+      slides[c].style.opacity='1';
+    },1000);
+  });
+})();
+</script>
+<style>.home-side-slide{opacity:1;transition:opacity 1s ease-in;}</style>
+</div><!-- /.home-sections -->
 {% endblock %}

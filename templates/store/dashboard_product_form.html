@@ -45,7 +45,6 @@
 .selected-size-item .si-fields label { font-size:10px; color:#888; white-space:nowrap; }
 </style>
 
-    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
     <div class="dashboard-form-container">
         <form method="POST" enctype="multipart/form-data" id="productForm" novalidate>
             {% csrf_token %}
@@ -101,40 +100,6 @@
                     </div>
                 </div>
             </div>
-
-            {% if partner.shop_style == 'medicine' %}
-            <div class="dashboard-form-section" id="medicine-fields-section">
-                <div class="section-header">
-                    <div class="section-icon"><i class="fa fa-medkit"></i></div>
-                    <div>
-                        <h3>Medicine Information</h3>
-                        <p>Brand name, generic name, strength, and dosage form</p>
-                    </div>
-                </div>
-                <div class="section-body">
-                    <div class="form-row-2">
-                        <div class="form-group">
-                            <label>Brand Name</label>
-                            <input type="text" name="medicine_brand_name" class="form-control" value="{{ product.medicine_brand_name|default:'' }}" placeholder="e.g. Napa, Fexo, Rivotril">
-                        </div>
-                        <div class="form-group">
-                            <label>Generic Name <span style="font-weight:400;color:#999;font-size:11px;">(active ingredient)</span></label>
-                            <input type="text" name="medicine_generic_name" class="form-control" value="{{ product.medicine_generic_name|default:'' }}" placeholder="e.g. Paracetamol, Fexofenadine">
-                        </div>
-                    </div>
-                    <div class="form-row-2">
-                        <div class="form-group">
-                            <label>Strength</label>
-                            <input type="text" name="medicine_strength" class="form-control" value="{{ product.medicine_strength|default:'' }}" placeholder="e.g. 500 mg, 120 mg">
-                        </div>
-                        <div class="form-group">
-                            <label>Dosage Form</label>
-                            <input type="text" name="medicine_dosage_form" class="form-control" value="{{ product.medicine_dosage_form|default:'' }}" placeholder="e.g. Tablet, Syrup, Capsule">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
 
             <div class="dashboard-form-section">
                 <div class="section-header">
@@ -528,8 +493,9 @@
                 </div>
                 <div class="section-body">
                     <div class="form-group">
-                        <div id="description-editor" style="min-height:320px;"></div>
-                        <textarea name="description" id="description-hidden" style="display:none">{{ product.description|default:'' }}</textarea>
+                        <label>Full Description</label>
+                        <textarea name="description" data-editor="tinymce" rows="14" class="form-control">{{ product.description|default:'' }}</textarea>
+                        <div class="help-text">Use the <strong>&lt;/&gt;</strong> Source Code button in the toolbar to also add HTML, CSS, or JavaScript.</div>
                     </div>
                 </div>
             </div>
@@ -544,7 +510,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js"></script>
+<script src="{% static 'js/richtext_init.js' %}"></script>
 <script>
 (function() {
     // Char counter for short description
@@ -803,28 +770,6 @@
             });
         });
     }
-})();
-</script>
-<script>
-(function() {
-    var quill = new Quill('#description-editor', {
-        theme: 'snow',
-        modules: {
-            toolbar: [
-                [{ 'header': [1, 2, 3, false] }],
-                ['bold', 'italic', 'underline', 'strike'],
-                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                ['link', 'blockquote', 'clean']
-            ]
-        }
-    });
-    var hiddenDesc = document.getElementById('description-hidden');
-    if (hiddenDesc && hiddenDesc.value) {
-        quill.root.innerHTML = hiddenDesc.value;
-    }
-    document.getElementById('productForm').addEventListener('submit', function() {
-        hiddenDesc.value = quill.root.innerHTML;
-    });
 })();
 </script>
 {% endblock %}

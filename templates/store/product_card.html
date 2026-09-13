@@ -1,62 +1,91 @@
-<div class="product-card">
+<div class="product-item">
     {% if product.custom_label %}
-    <span class="product-badge">{{ product.custom_label }}</span>
+    <div class="icon-sale-label sale-left">{{ product.custom_label }}</div>
     {% elif product.label == 'new' %}
-    <span class="product-badge">New</span>
+    <div class="icon-sale-label sale-left">New</div>
     {% elif product.label == 'hot' %}
-    <span class="product-badge badge-hot">Hot</span>
+    <div class="icon-sale-label sale-left">Hot Item</div>
     {% elif product.label == 'used' %}
-    <span class="product-badge badge-used">Used</span>
+    <div class="icon-sale-label sale-left">Used</div>
     {% elif product.old_price %}
-    <span class="product-badge badge-discount">Discount</span>
+    <div class="icon-sale-label sale-left">Discounted</div>
     {% endif %}
-    <div class="product-img">
-        <a href="{% url 'product_detail' product.slug %}">
-            {% if product.image %}
-            <img src="{{ product.image.url }}" alt="{{ product.name }}">
-            {% else %}
-            <img src="/static/img/placeholder_200x200.png" alt="{{ product.name }}">
-            {% endif %}
-        </a>
-        <a href="{% url 'product_detail' product.slug %}" class="order-now-btn">Order Now</a>
-        <button class="quick-view-btn" data-product-id="{{ product.id }}" title="Quick View"><i class="fa fa-eye"></i> Quick View</button>
-    </div>
-    <div class="product-content">
-        <h4 class="product-title">
-            <a href="{% url 'product_detail' product.slug %}">{{ product.name|truncatechars:45 }}</a>
-        </h4>
-        {% if product.review_count > 0 %}
-        <div class="rating">
-            {% for i in '12345'|make_list %}
-            {% if forloop.counter <= product.review_avg %}
-            <i class="fa fa-star"></i>
-            {% else %}
-            <i class="fa fa-star-o"></i>
-            {% endif %}
-            {% endfor %}
-            <span style="font-size:12px; color:#888; margin-left:4px;">({{ product.review_count }})</span>
+    <div class="item-inner">
+        <div class="product-thumbnail">
+            <div class="btn-quickview">
+                <a href="{% url 'product_detail' product.slug %}">
+                    <span>Order Now</span>
+                </a>
+            </div>
+            <a href="{% url 'product_detail' product.slug %}" class="product-item-photo">
+                {% if product.image %}
+                <img class="product-image-photo img-fluid rounded" style="height: 210px; object-fit: cover;"
+                     src="{{ product.image.url }}"
+                     {% if product.hover_image %}
+                     onmouseover="this.src='{{ product.hover_image.url }}'"
+                     onmouseout="this.src='{{ product.image.url }}'"
+                     {% endif %}
+                     alt="{{ product.name }}">
+                {% else %}
+                <img class="product-image-photo img-fluid rounded" style="height: 210px; object-fit: cover;"
+                     src="https://via.placeholder.com/300x210?text=No+Image" alt="{{ product.name }}">
+                {% endif %}
+            </a>
         </div>
-        {% endif %}
-        <div class="price-box">
-            {% if product.price_on_request %}
-            <span class="special-price" style="font-size:12px; color:var(--partner-primary, #e74847);">Price on Request</span>
-            {% else %}
-            <span class="special-price">৳ {{ product.price }}</span>
-            {% endif %}
-            {% if product.old_price %}
-            <span class="old-price">৳{{ product.old_price }}</span>
-            {% endif %}
-            {% if product.sale_unit and not product.price_on_request %}
-            <span class="sale-unit-label">/ {{ product.get_sale_unit_display|lower }}</span>
-            {% endif %}
-        </div>
-        <div class="product-action">
-            <a href="{% url 'wishlist_add' product.id %}" class="action-wishlist{% if product.id in wishlist_ids %} active{% endif %}"><i class="fa fa-heart"></i></a>
-            <form action="{% url 'add_to_cart' product.id %}" method="POST">
-                {% csrf_token %}
-                <button type="submit" class="action-cart"><i class="fa fa-shopping-cart"></i> Add to Cart</button>
-            </form>
-            <a href="{% url 'compare_add' product.id %}" class="action-compare{% if product.id in compare_ids %} active{% endif %}"><i class="fa fa-exchange"></i></a>
+        <div class="pro-box-info">
+            <div class="item-info">
+                <div class="info-inner">
+                    <div class="item-title">
+                        <a title="{{ product.name }}" href="{% url 'product_detail' product.slug %}">
+                            {{ product.name|truncatechars:40 }}
+                        </a>
+                    </div>
+                    <div class="item-content">
+                        <div class="rating">
+                            {% for i in "12345" %}
+                            {% if forloop.counter <= product.review_avg|default:"0" %}
+                            <i class="fa fa-star"></i>
+                            {% else %}
+                            <i class="fa fa-star-o"></i>
+                            {% endif %}
+                            {% endfor %}
+                            {% if product.review_count %}<span style="font-size:12px; color:#888; margin-left:4px;">({{ product.review_count }})</span>{% endif %}
+                        </div>
+                        <div class="item-price">
+                            <div class="price-box">
+                                {% if product.price_on_request %}
+                                <p class="special-price"><span class="price">Price on Request</span></p>
+                                {% else %}
+                                <p class="special-price"><span class="price">Price &#x09F3; {{ product.price }}</span></p>
+                                {% endif %}
+                                {% if product.old_price %}
+                                <p class="old-price"><span class="price">&#x09F3;{{ product.old_price }}</span></p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="box-hover">
+                <div class="product-item-actions">
+                    <div class="pro-actions">
+                        <form action="{% url 'add_to_cart' product.id %}" method="post">
+                            {% csrf_token %}
+                            <button class="action add-to-cart" type="submit" title="Add to Cart">
+                                <span>Add to Cart</span>
+                            </button>
+                        </form>
+                    </div>
+                    <div class="add-to-links">
+                        <a href="{% url 'wishlist_add' product.id %}" class="action add-to-wishlist" title="Add to Wishlist">
+                            <span>Wishlist</span>
+                        </a>
+                        <a href="{% url 'compare_add' product.id %}" class="action add-to-compare" title="Add to Compare">
+                            <span>Compare</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

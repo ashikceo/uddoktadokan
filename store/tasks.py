@@ -181,3 +181,22 @@ def expire_expired_active_subscriptions():
         logger = __import__('logging').getLogger(__name__)
         logger.info(f'Expired {expired} medicine active subscriptions.')
     return f'Expired {expired} subscriptions.'
+
+
+@shared_task
+def check_custom_domains_task():
+    """Celery beat entry point (every 5 minutes) — advance all pending domains."""
+    from .services.custom_domain import check_pending_domains
+    summary = check_pending_domains(limit=200)
+    if summary.get('activated'):
+        logger = __import__('logging').getLogger(__name__)
+        logger.info('Custom domain check complete: %s', summary)
+    return summary
+
+
+@shared_task
+def renew_custom_domain_certificates():
+    """Daily task — renew custom-domain SSL certificates near expiry."""
+    from .services.custom_domain import renew_ssl_if_needed
+    renewed = renew_ssl_if_needed()
+    return {'renewed': renewed}

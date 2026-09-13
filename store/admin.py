@@ -2,6 +2,7 @@ import csv
 from datetime import datetime
 from decimal import Decimal
 from django.db.models.fields.files import FieldFile
+from django.db import models
 from django.contrib import admin
 from django.contrib.admin.decorators import register as admin_register
 from django.contrib.auth.models import User, Group
@@ -10,10 +11,11 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.template.response import TemplateResponse
-from django.urls import path, reverse
+from django.urls import path, reverse, NoReverseMatch
 from django.utils import timezone
 from django.utils.html import format_html, mark_safe
-from .models import Address, Category, Partner, Product, ProductImage, ProductColorVariant, ProductSizeVariant, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, SiteLogo, PartnerBanner, PartnerSlider, NavMenu, PartnerNavMenu, SocialMediaLink, Page, SideBanner, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, DeliveryLog, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, ManualPaymentMethod, PosOrder, PosOrderItem, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, SubscriptionPackage, WalletRechargeInstruction
+from .models import Address, Category, Partner, Product, ProductImage, ProductColorVariant, ProductSizeVariant, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, SiteLogo, NewsTicker, PartnerBanner, PartnerSlider, NavMenu, PartnerNavMenu, SocialMediaLink, Page, SideBanner, ShopSidebarSlider, ShopBanner, ShopSidebarBottomBanner, ShopSliderConfig, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, DeliveryLog, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, ManualPaymentMethod, PosOrder, PosOrderItem, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, SubscriptionPackage, WalletRechargeInstruction, MedicineInventory, MedicineInventoryLog, DiscountCardContent, PaymentIcon, HomepageSettings, PromoCard, BrandLogo, CustomDomain
+from .widgets import RichTextEditorWidget
 from .admin_site import custom_admin_site
 
 
@@ -329,14 +331,33 @@ class AddressAdmin(admin.ModelAdmin):
 
 @admin_register(Category, site=custom_admin_site)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'product_count', 'parent']
+    list_display = ['name', 'parent_short', 'slug', 'product_count', 'is_active', 'sort_order']
+    list_editable = ['is_active', 'sort_order']
     prepopulated_fields = {'slug': ('name',)}
-    search_fields = ['name']
-    list_filter = ['parent']
+    search_fields = ['name', 'slug']
+    list_filter = ['is_active', 'parent']
+    ordering = ['parent_id', 'sort_order', 'name']
+    list_per_page = 100
     change_list_template = 'admin/store/category/change_list.html'
+    fieldsets = [
+        (None, {'fields': ['name', 'slug', 'parent', 'image', 'icon']}),
+        ('Details', {'fields': ['is_active', 'sort_order', 'description']}),
+        ('SEO', {'fields': ['meta_title', 'meta_description']}),
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.list_display_links = ['name']
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related('products', 'children').select_related('parent')
+
+    def parent_short(self, obj):
+        if not obj.parent_id:
+            return '-'
+        chain = obj.get_path_labels()
+        return '/'.join(name for name, url in chain[:-1])
+    parent_short.short_description = 'Path'
 
     def product_count(self, obj):
         return obj.products.count()
@@ -1037,9 +1058,40 @@ class SiteLogoAdmin(admin.ModelAdmin):
             return super().get_fieldsets(request, obj)
         return [
             ('Site Identity', {'fields': ['site_name', 'site_tagline']}),
+            ('Search', {'fields': ['search_placeholder']}),
             ('Branding', {'fields': ['logo', 'favicon']}),
             ('Theme', {'fields': ['site_theme', 'site_primary_color', 'site_secondary_color'], 'classes': ['collapse']}),
+            ('Footer', {'fields': [
+                'site_phone', 'site_whatsapp', 'site_email',
+                'site_address_bd', 'site_address_us',
+                'footer_about',
+                'newsletter_title', 'newsletter_subtitle',
+                'footer_copyright',
+            ], 'classes': ['collapse']}),
+            ('Footer Sections (show / hide)', {'fields': [
+                'show_newsletter_section', 'show_contact_section',
+                'show_follow_us_section', 'show_policy_buttons',
+                'show_copyright_bar', 'show_payment_icons',
+            ], 'classes': ['collapse']}),
             ('Checkout Settings', {'fields': ['partner_delivery_enabled']}),
+        ]
+
+
+@admin_register(NewsTicker, site=custom_admin_site)
+class NewsTickerAdmin(admin.ModelAdmin):
+    list_display = ['text_preview', 'type', 'is_active', 'order']
+    list_editable = ['is_active', 'order']
+    list_filter = ['is_active', 'type']
+    search_fields = ['text']
+    list_display_links = ['text_preview']
+
+    def text_preview(self, obj):
+        return obj.text[:80] + '...' if len(obj.text) > 80 else obj.text
+    text_preview.short_description = 'Text'
+
+    def get_fieldsets(self, request, obj=None):
+        return [
+            (None, {'fields': ['type', 'text', 'is_active', 'order']}),
         ]
 
 
@@ -1080,9 +1132,29 @@ class PartnerNavMenuAdmin(admin.ModelAdmin):
 
 # ─── Social Media ───
 
+@admin_register(PaymentIcon, site=custom_admin_site)
+class PaymentIconAdmin(admin.ModelAdmin):
+    list_display = ['name', 'icon_preview', 'order', 'is_active_badge']
+    list_editable = ['order']
+    list_filter = ['is_active']
+    search_fields = ['name']
+
+    def icon_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" height="32" style="object-fit:contain;" />', obj.image.url)
+        if obj.image_url:
+            return format_html('<img src="{}" height="32" style="object-fit:contain;" />', obj.image_url)
+        return ''
+    icon_preview.short_description = 'Icon'
+
+    def is_active_badge(self, obj):
+        return format_html('<span style="color:{};">●</span>', '#28a745' if obj.is_active else '#d9534f')
+    is_active_badge.short_description = 'Active'
+
+
 @admin_register(SocialMediaLink, site=custom_admin_site)
 class SocialMediaLinkAdmin(admin.ModelAdmin):
-    list_display = ['name', 'url', 'icon_class', 'order', 'is_active_badge']
+    list_display = ['name', 'url', 'icon_class', 'color', 'order', 'is_active_badge']
     list_editable = ['order']
     list_filter = ['is_active']
     search_fields = ['name', 'url']
@@ -1128,6 +1200,150 @@ class SideBannerAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
 
+@admin_register(ShopSidebarSlider, site=custom_admin_site)
+class ShopSidebarSliderAdmin(admin.ModelAdmin):
+    list_display = ['title', 'image_preview', 'section', 'order', 'is_active', 'created']
+    list_editable = ['order', 'is_active']
+    list_filter = ['is_active', 'section']
+    search_fields = ['title']
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" height="50" style="border-radius:4px;object-fit:cover;" />', obj.image.url)
+        return ''
+    image_preview.short_description = 'Image'
+
+
+@admin_register(ShopBanner, site=custom_admin_site)
+class ShopBannerAdmin(admin.ModelAdmin):
+    list_display = ['title', 'image_preview', 'order', 'is_active', 'created']
+    list_editable = ['order', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['title']
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" height="50" style="border-radius:4px;object-fit:cover;" />', obj.image.url)
+        return ''
+    image_preview.short_description = 'Image'
+
+
+@admin_register(ShopSidebarBottomBanner, site=custom_admin_site)
+class ShopSidebarBottomBannerAdmin(admin.ModelAdmin):
+    list_display = ['title', 'image_preview', 'section', 'order', 'is_active', 'created']
+    list_editable = ['order', 'is_active']
+    list_filter = ['is_active', 'section']
+    search_fields = ['title']
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" height="50" style="border-radius:4px;object-fit:cover;" />', obj.image.url)
+        return ''
+    image_preview.short_description = 'Image'
+
+
+@admin_register(ShopSliderConfig, site=custom_admin_site)
+class ShopSliderConfigAdmin(admin.ModelAdmin):
+    list_display = ['area_display', 'autoplay_time', 'height', 'width', 'show_title', 'is_active']
+    list_editable = ['autoplay_time', 'height', 'width', 'show_title', 'is_active']
+    list_display_links = ['area_display']
+    list_filter = ['is_active']
+    fieldsets = [
+        (None, {
+            'fields': ['area'],
+            'description': 'Which slider on the Shop page this setting controls.',
+        }),
+        ('Slide Changing Time & Container Size', {
+            'fields': ['autoplay_time', 'height', 'width'],
+            'description': 'autoplay_time = seconds each slide stays on screen. '
+                           'height/width = slider container size in pixels (width 0 = full width / 100%).',
+        }),
+        ('Display Options', {
+            'fields': ['show_title', 'is_active'],
+            'description': 'Uncheck "is_active" to hide this slider on the page; check it to show again.',
+        }),
+    ]
+    search_fields = ['area']
+
+    def area_display(self, obj):
+        return obj.get_area_display()
+    area_display.short_description = 'Slider'
+    area_display.admin_order_field = 'area'
+
+
+# ─── Homepage & Page Settings (one-stop control) ───
+
+@admin_register(HomepageSettings, site=custom_admin_site)
+class HomepageSettingsAdmin(admin.ModelAdmin):
+    fieldsets = [
+        ('B2B / B2C Buttons', {
+            'fields': ['show_b2b_b2c_buttons', 'b2b_icon', 'b2b_button_text', 'b2b_url', 'b2c_icon', 'b2c_button_text', 'b2c_url'],
+            'description': 'The two buttons below the top slider on the home page.',
+        }),
+        ('All Over Available Product (tabs)', {
+            'fields': ['show_tabbed_products', 'products_heading', 'tab_all_label', 'tab_new_label', 'tab_discounted_label', 'tab_hot_label'],
+        }),
+        ('Random Product List (sidebars)', {
+            'fields': ['show_random_product', 'random_list_heading'],
+        }),
+        ('Partner Product Sections', {
+            'fields': ['show_partner_products', 'partner_products_heading', 'show_partner_hot_products', 'partner_hot_products_heading'],
+        }),
+        ('Blog Marquee + Video', {
+            'fields': ['show_blog_marquee', 'new_arrival_heading', 'show_videos', 'videos_heading', 'home_video_embed'],
+            'description': 'The "New Arrival Product" marquee shows blog posts (manage them under Blog Posts). Paste any YouTube embed URL to change the video.',
+        }),
+        ('Promo Cards + Brand Marquee', {
+            'fields': ['show_promo_cards', 'show_brand_marquee', 'brands_heading'],
+            'description': 'Edit / add / delete the promo cards and brand logos from the separate "Promo Cards" and "Brand Logos" sections below.',
+        }),
+        ('Home Banner Strip', {
+            'fields': ['show_home_banner'],
+            'description': 'When ON, the images under "Home Banner" render as a full-width strip above the promo cards.',
+        }),
+        ('Shop Grid Page', {
+            'fields': ['shop_heading', 'show_shop_labels', 'shop_label_all', 'shop_label_new', 'shop_label_hot', 'shop_label_discounted'],
+        }),
+        ('Product Detail Page', {
+            'fields': ['show_share_buttons', 'shipping_delivery_title', 'shipping_delivery_text', 'shipping_return_title', 'shipping_return_text', 'shipping_payment_title', 'shipping_payment_text'],
+        }),
+        ('Other Page Titles', {
+            'fields': ['contact_heading', 'discount_heading'],
+        }),
+        ('Saved', {'fields': ['created', 'updated']}),
+    ]
+    readonly_fields = ['created', 'updated']
+
+    def has_add_permission(self, request):
+        return not self.model.objects.exists()
+
+
+# ─── Promo Cards ───
+
+@admin_register(PromoCard, site=custom_admin_site)
+class PromoCardAdmin(admin.ModelAdmin):
+    list_display = ['title', 'description', 'icon', 'link', 'order', 'is_active']
+    list_editable = ['order', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['title', 'description']
+
+
+# ─── Brand Logos ───
+
+@admin_register(BrandLogo, site=custom_admin_site)
+class BrandLogoAdmin(admin.ModelAdmin):
+    list_display = ['name', 'image_preview', 'link', 'order', 'is_active']
+    list_editable = ['order', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['name']
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" height="40" style="object-fit:contain;background:#fff;" />', obj.image.url)
+        return ''
+    image_preview.short_description = 'Logo'
+
+
 # ─── Page ───
 
 @admin_register(Page, site=custom_admin_site)
@@ -1167,13 +1383,14 @@ class PageAdmin(admin.ModelAdmin):
         return mark_safe('<span style="color:#28a745;font-weight:600;">✓ Active</span>' if obj.is_active else '<span style="color:#dc3545;">✗ Inactive</span>')
     is_active_badge.short_description = 'Status'
 
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        if db_field.name == 'content' and isinstance(db_field, models.TextField):
+            kwargs['widget'] = RichTextEditorWidget()
+        return super().formfield_for_dbfield(db_field, **kwargs)
+
     class Media:
-        css = {'all': ['https://cdn.jsdelivr.net/npm/codemirror@5/lib/codemirror.css']}
-        js = ['https://cdn.jsdelivr.net/npm/codemirror@5/lib/codemirror.js',
-              'https://cdn.jsdelivr.net/npm/codemirror@5/mode/xml/xml.js',
-              'https://cdn.jsdelivr.net/npm/codemirror@5/mode/css/css.js',
-              'https://cdn.jsdelivr.net/npm/codemirror@5/mode/javascript/javascript.js',
-              'https://cdn.jsdelivr.net/npm/codemirror@5/mode/htmlmixed/htmlmixed.js']
+        js = ['https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js',
+              'js/richtext_init.js']
 
 
 # ─── Landing Page ───
@@ -1209,12 +1426,36 @@ class LandingPageAdmin(admin.ModelAdmin):
 
 # ─── Nav Menu ───
 
+class NavMenuForm(forms.ModelForm):
+    class Meta:
+        model = NavMenu
+        fields = '__all__'
+
+    def clean(self):
+        cleaned = super().clean()
+        url = cleaned.get('url', '')
+        url_type = cleaned.get('url_type')
+        kind = cleaned.get('kind', 'link')
+        if kind == 'link' and url_type == 'named_url' and url:
+            try:
+                reverse(url)
+            except NoReverseMatch:
+                raise forms.ValidationError({'url': f"'{url}' is not a valid URL name. Example valid names: home, shop_grid, partner_list, union_list, dealer_list, seller_list, discount_card, blog_list, dashboard."})
+        return cleaned
+
+
 @admin_register(NavMenu, site=custom_admin_site)
 class NavMenuAdmin(admin.ModelAdmin):
-    list_display = ['title', 'url', 'url_type', 'order', 'is_active_badge', 'login_required', 'logout_required']
+    form = NavMenuForm
+    list_display = ['title', 'kind', 'url', 'url_type', 'order', 'show_desktop', 'show_mobile', 'is_active_badge']
     list_editable = ['order']
-    list_filter = ['is_active', 'url_type', 'login_required', 'logout_required']
+    list_filter = ['kind', 'is_active', 'url_type', 'show_desktop', 'show_mobile', 'login_required', 'logout_required']
     search_fields = ['title', 'url']
+    fieldsets = [
+        (None, {'fields': ['title', 'kind']}),
+        ('Redirect link', {'fields': ['url', 'url_type', 'open_new_tab'], 'description': "For 'Link' buttons only. Choose Named URL (e.g. 'home', 'shop_grid', 'dashboard') or a full path (e.g. '/shop/'). Categories and Account buttons do not use this."}),
+        ('Visibility', {'fields': ['order', 'is_active', 'show_desktop', 'show_mobile', 'login_required', 'logout_required']}),
+    ]
 
     def is_active_badge(self, obj):
         return mark_safe('<span style="color:#28a745;font-weight:600;">✓ Active</span>' if obj.is_active else '<span style="color:#dc3545;">✗ Inactive</span>')
@@ -1887,7 +2128,7 @@ class ManualPaymentMethodAdmin(admin.ModelAdmin):
 
 # ─── POS Orders (default admin, read-only) ───
 
-@admin.register(PosOrder)
+@admin_register(PosOrder, site=custom_admin_site)
 class PosOrderAdmin(admin.ModelAdmin):
     list_display = ['invoice_number', 'partner', 'customer_name', 'total', 'payment_method', 'status', 'created']
     list_filter = ['status', 'payment_method', 'created']
@@ -1902,7 +2143,7 @@ class PosOrderAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(PosOrderItem)
+@admin_register(PosOrderItem, site=custom_admin_site)
 class PosOrderItemAdmin(admin.ModelAdmin):
     list_display = ['pos_order', 'product_name', 'price', 'quantity', 'total_price']
     search_fields = ['product_name', 'pos_order__invoice_number']
@@ -2074,14 +2315,13 @@ class TicketReplyAdmin(admin.ModelAdmin):
 
 @admin_register(MedicineProduct, site=custom_admin_site)
 class MedicineProductAdmin(admin.ModelAdmin):
-    list_display = ['sku', 'brand_name', 'generic_name_short', 'strength', 'dosage_form', 'price_display', 'stock_badge', 'is_approved', 'is_approved_badge', 'requested_by_info', 'created']
+    list_display = ['sku', 'brand_name', 'generic_name_short', 'strength', 'dosage_form', 'manufacturer', 'pack_size', 'price_display', 'pack_price', 'stock_badge', 'is_approved', 'is_approved_badge', 'requested_by_info', 'created']
     list_filter = ['is_approved', 'dosage_form', 'created']
     list_editable = ['is_approved']
-    search_fields = ['brand_name', 'generic_name', 'sku', 'strength', 'dosage_form', 'requested_by__name']
-    date_hierarchy = 'created'
+    search_fields = ['brand_name', 'generic_name', 'sku', 'strength', 'dosage_form', 'manufacturer', 'requested_by__name']
     fieldsets = [
-        (None, {'fields': ['brand_name', 'generic_name', 'strength', 'dosage_form', 'sku']}),
-        ('Pricing & Stock', {'fields': ['price', 'stock']}),
+        (None, {'fields': ['brand_name', 'generic_name', 'strength', 'dosage_form', 'manufacturer', 'pack_size', 'sku']}),
+        ('Pricing & Stock', {'fields': ['price', 'pack_price', 'stock']}),
         ('Media', {'fields': ['image', 'description']}),
         ('Approval', {'fields': ['is_approved', 'requested_by']}),
     ]
@@ -2331,3 +2571,108 @@ class WalletRechargeInstructionAdmin(admin.ModelAdmin):
         (None, {'fields': ['title', 'instruction_text']}),
         ('Display', {'fields': ['is_active', 'order']}),
     ]
+
+
+@admin_register(MedicineInventory, site=custom_admin_site)
+class MedicineInventoryAdmin(admin.ModelAdmin):
+    list_display = ['partner_name', 'product_name', 'sku', 'stock', 'low_stock_threshold', 'is_low_stock_badge', 'is_active', 'updated']
+    list_filter = ['is_active', 'partner']
+    search_fields = ['partner__name', 'product__brand_name', 'product__generic_name', 'product__sku']
+    readonly_fields = ['partner', 'product', 'created', 'updated']
+    list_editable = ['stock', 'low_stock_threshold', 'is_active']
+    list_per_page = 50
+
+    def partner_name(self, obj):
+        return obj.partner.name
+    partner_name.short_description = 'Partner'
+    partner_name.admin_order_field = 'partner__name'
+
+    def product_name(self, obj):
+        return obj.product.brand_name
+    product_name.short_description = 'Product'
+    product_name.admin_order_field = 'product__brand_name'
+
+    def sku(self, obj):
+        return obj.product.sku
+    sku.short_description = 'SKU'
+
+    def is_low_stock_badge(self, obj):
+        if obj.is_low_stock:
+            return format_html('<span style="color:#f0ad4e;font-weight:bold;">LOW</span>')
+        return format_html('<span style="color:#5cb85c;">OK</span>')
+    is_low_stock_badge.short_description = 'Stock Status'
+
+
+@admin_register(MedicineInventoryLog, site=custom_admin_site)
+class MedicineInventoryLogAdmin(admin.ModelAdmin):
+    list_display = ['partner_name', 'product_name', 'adjustment_type', 'quantity', 'balance_after', 'reason', 'reference', 'created']
+    list_filter = ['adjustment_type']
+    search_fields = ['inventory__partner__name', 'inventory__product__brand_name', 'reason', 'reference']
+    readonly_fields = ['inventory', 'adjustment_type', 'quantity', 'balance_after', 'reason', 'reference', 'created']
+    list_per_page = 50
+
+    def partner_name(self, obj):
+        return obj.inventory.partner.name
+    partner_name.short_description = 'Partner'
+
+    def product_name(self, obj):
+        return obj.inventory.product.brand_name
+    product_name.short_description = 'Product'
+
+    def has_add_permission(self, request): return False
+    def has_change_permission(self, request, obj=None): return False
+
+
+@admin_register(DiscountCardContent, site=custom_admin_site)
+class DiscountCardContentAdmin(admin.ModelAdmin):
+    list_display = ['title', 'sort_order', 'is_active', 'created']
+    list_editable = ['sort_order', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['title', 'content']
+    fieldsets = [
+        (None, {'fields': ['title', 'content']}),
+        ('Settings', {'fields': ['sort_order', 'is_active']}),
+    ]
+
+
+@admin_register(CustomDomain, site=custom_admin_site)
+class CustomDomainAdmin(admin.ModelAdmin):
+    list_display = ['domain', 'owner', 'account_type', 'status', 'dns_status', 'ssl_status', 'is_active', 'is_primary', 'ssl_expires_at', 'updated_at']
+    list_filter = ['status', 'dns_status', 'ssl_status', 'is_active', 'is_primary', 'account_type']
+    search_fields = ['domain', 'normalized_domain', 'owner__name', 'owner__slug']
+    readonly_fields = ['normalized_domain', 'verification_method', 'dns_verified_at', 'ssl_issued_at', 'ssl_expires_at', 'last_dns_check', 'last_ssl_check', 'created_at', 'updated_at']
+    list_select_related = ['owner']
+    list_per_page = 50
+    actions = ['recheck_selected', 'activate_selected']
+
+    def recheck_selected(self, request, queryset):
+        from .services.custom_domain import process_domain
+        updated = activated = 0
+        for row in queryset:
+            try:
+                if process_domain(row):
+                    activated += 1
+                updated += 1
+            except Exception:
+                continue
+        self.message_user(request, f'Re-checked {updated} domain(s), {activated} now active.')
+    recheck_selected.short_description = 'Re-check DNS / SSL now'
+
+    def activate_selected(self, request, queryset):
+        from .services.custom_domain import process_domain
+        activated = 0
+        for row in queryset:
+            try:
+                if row.dns_status != 'connected':
+                    process_domain(row)
+                if row.dns_status == 'connected' and row.ssl_status != 'active':
+                    process_domain(row)
+                if row.status == 'active':
+                    row.is_active = True
+                    row.is_primary = True
+                    row.save(update_fields=['is_active', 'is_primary', 'updated_at'])
+                    activated += 1
+            except Exception:
+                continue
+        self.message_user(request, f'{activated} domain(s) activated as live stores.')
+    activate_selected.short_description = 'Activate as live domain'

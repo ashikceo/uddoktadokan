@@ -1,31 +1,126 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Seller List - Uddoktar Dokan{% endblock %}
+{% block title %}Seller List - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.seller-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+}
+@media(max-width:1199px){ .seller-grid { grid-template-columns: repeat(3, 1fr); } }
+@media(max-width:991px){ .seller-grid { grid-template-columns: repeat(3, 1fr); } }
+@media(max-width:767px){ .seller-grid { grid-template-columns: repeat(2, 1fr); } }
+@media(max-width:479px){ .seller-grid { grid-template-columns: 1fr; } }
+
+.seller-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+  background: #fff;
+}
+.seller-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.seller-card-img {
+  width: 100%;
+  height: 150px;
+  overflow: hidden;
+  background: #f8f8f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #eee;
+}
+.seller-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8px;
+}
+.seller-card-placeholder {
+  font-size: 48px;
+  color: #ccc;
+}
+
+.seller-card-info {
+  padding: 12px;
+  text-align: center;
+}
+.seller-card-info h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seller-card-info .domain {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #6f42c1;
+}
+.seller-card-info .desc {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seller-card-info .addr {
+  margin: 0;
+  font-size: 11px;
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container page-content">
-    <div class="breadcrumb">
-        <a href="{% url 'home' %}">Home</a> / <span>Seller List</span>
+<div class="main-container col2-left-layout">
+  <div class="container">
+    <div class="page-title"><h2>Seller List</h2></div>
+    <div class="seller-grid">
+      {% for seller in sellers %}
+      <a href="{% url 'partner_detail' seller.slug %}" class="seller-card">
+        <div class="seller-card-img">
+          {% if seller.profile_image %}
+          <img src="{{ seller.profile_image.url }}" alt="{{ seller.name }}">
+          {% elif seller.logo %}
+          <img src="{{ seller.logo.url }}" alt="{{ seller.name }}">
+          {% else %}
+          <div class="seller-card-placeholder"><i class="fa fa-user"></i></div>
+          {% endif %}
+        </div>
+        <div class="seller-card-info">
+          <h4>{{ seller.name }}</h4>
+          {% if seller.domain_name %}
+          <p class="domain">Domain: {{ seller.domain_name }}</p>
+          {% endif %}
+          {% if seller.description %}
+          <p class="desc">{{ seller.description|truncatewords:10 }}</p>
+          {% endif %}
+          {% if seller.formatted_address %}
+          <p class="addr"><i class="fa fa-map-marker"></i> {{ seller.formatted_address|truncatewords:8 }}</p>
+          {% endif %}
+        </div>
+      </a>
+      {% empty %}
+      <div style="grid-column:1/-1; text-align:center; padding:40px 0; color:#888;">No sellers found.</div>
+      {% endfor %}
     </div>
-    <div class="page-header"><h1>Seller List</h1></div>
-    <div class="partner-grid">
-        {% for seller in sellers %}
-        <a href="{% url 'partner_detail' seller.slug %}" class="partner-card">
-            {% if seller.profile_image %}
-            <img src="{{ seller.profile_image.url }}" alt="{{ seller.name }}">
-            {% else %}
-            <img src="/static/img/placeholder_100x100.png" alt="{{ seller.name }}">
-            {% endif %}
-            <h4>{{ seller.name }}</h4>
-            <p>{{ seller.description|truncatewords:10 }}</p>
-            {% if seller.formatted_address %}
-            <p style="font-size:12px; color:#888;"><i class="fa fa-map-marker"></i> {{ seller.formatted_address|truncatewords:15 }}</p>
-            {% endif %}
-        </a>
-        {% empty %}
-        <p>No sellers found.</p>
-        {% endfor %}
-    </div>
+  </div>
 </div>
 {% endblock %}

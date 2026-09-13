@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ site_name }} & {{ site_tagline }}{% endblock %}</title>
+    {% block meta %}
+    <meta name="description" content="{% block meta_description %}{{ site_tagline }}{% endblock %}">
+    {% endblock %}
+    <link rel="canonical" href="{% block canonical_url %}{{ request.build_absolute_uri }}{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}{{ site_name }} & {{ site_tagline }}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{{ site_tagline }}{% endblock %}">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:site_name" content="{{ site_name }}">
+    {% block og_image %}{% if site_logo and site_logo.logo %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ site_logo.logo.url }}">{% endif %}{% endblock %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}{{ site_name }} & {{ site_tagline }}{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}{{ site_tagline }}{% endblock %}">
+    {% block twitter_image %}{% if site_logo and site_logo.logo %}<meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{{ site_logo.logo.url }}">{% endif %}{% endblock %}
+    {% block favicon %}
+    {% if site_logo and site_logo.favicon %}
+    <link rel="icon" type="image/x-icon" href="{{ site_logo.favicon.url }}">
+    {% endif %}
+    {% endblock %}
+    {% block head_extra %}
+    <style>:root{--partner-primary:{% if site_logo.site_primary_color %}{{ site_logo.site_primary_color }}{% else %}#e74847{% endif %};--partner-secondary:{% if site_logo.site_secondary_color %}{{ site_logo.site_secondary_color }}{% else %}#333333{% endif %}}</style>
+    {% endblock %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="container">
+            <span class="phone"><i class="fa fa-phone"></i> {{ site_phone }} <a href="https://wa.me/{{ site_whatsapp }}" target="_blank" style="color:#25D366;"><i class="fa fa-whatsapp"></i></a></span>
+            <span class="top-links">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'home' %}">Welcome, {{ user.username }}</a>
+                    <a href="{% url 'dashboard' %}">Dashboard</a>
+                    {% if wallet_balance is not None %}
+                    <a href="{% url 'dashboard_wallet' %}">Wallet: ৳{{ wallet_balance|floatformat:0 }}</a>
+                    {% endif %}
+                    <form method="POST" action="{% url 'logout' %}" style="display:inline;">
+    {% csrf_token %}
+    <button type="submit" style="background:none; border:none; color:inherit; cursor:pointer; padding:0; font:inherit;">Logout</button>
+</form>
+                {% else %}
+                    <a href="{% url 'login' %}">Login</a>
+                    <a href="{% url 'register' %}">Registration</a>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <div class="flex justify-between align-center">
+                <div class="logo">
+                    <a href="{% block logo_link %}{% url 'home' %}{% endblock %}">
+                        {% block site_logo %}
+                        {% if site_logo and site_logo.logo %}
+                        <img src="{{ site_logo.logo.url }}" alt="{{ site_name }}" style="max-height:50px; width:auto;">
+                        {% else %}
+                        <h2 style="font-size:24px; font-weight:700; color:#e74847; margin:0;">{{ site_name }}</h2>
+                        <span style="font-size:12px; color:#888;">{{ site_tagline }}</span>
+                        {% endif %}
+                        {% endblock %}
+                    </a>
+                </div>
+                <div class="search-box">
+                    <form action="{% url 'shop_grid' %}" method="GET">
+                        <input type="text" name="q" placeholder="Search products...">
+                        <button type="submit"><i class="fa fa-search"></i></button>
+                    </form>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <a href="{% url 'wishlist' %}" style="font-size:13px;color:#333;text-decoration:none;position:relative;">
+                        <i class="fa fa-heart" style="font-size:18px;"></i>
+                        {% if wishlist_count %}<span style="position:absolute;top:-8px;right:-10px;background:#e74847;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;text-align:center;line-height:18px;">{{ wishlist_count }}</span>{% endif %}
+                    </a>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'dashboard_notifications' %}" style="font-size:13px;color:#333;text-decoration:none;position:relative;">
+                        <i class="fa fa-bell" style="font-size:18px;"></i>
+                        {% if unread_notifications %}<span style="position:absolute;top:-8px;right:-10px;background:#e74847;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;text-align:center;line-height:18px;">{{ unread_notifications }}</span>{% endif %}
+                    </a>
+                    {% endif %}
+                    <div class="top-cart">
+                        <div class="top-cart-contain">
+                            <a href="{% url 'cart' %}">
+                                <span class="cart-icon"><i class="fa fa-shopping-cart"></i></span>
+                                Shopping Cart {{ cart_items_count }} Item(s): ৳ {{ cart_total }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-bar">
+        <div class="container nav-container">
+            <div class="nav-toggle" id="navToggle">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="nav-menu" id="navMenu">
+                {% block nav_items %}
+                <ul>
+                    {% for item in nav_items %}
+                    {% if item.login_required and not user.is_authenticated %}
+                    {% elif item.logout_required and user.is_authenticated %}
+                    {% else %}
+                    <li>
+                        <a href="{% if item.url_type == 'named_url' %}{% url item.url %}{% else %}{{ item.url }}{% endif %}"
+                           class="{% if item.match_startswith %}{% if item.url in request.path %}active{% endif %}{% else %}{% if request.resolver_match.url_name == item.url %}active{% endif %}{% endif %}">
+                            {{ item.title }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    {% for page in header_pages %}
+                    <li><a href="{% url 'page_detail' page.slug %}" class="{% if request.resolver_match.url_name == 'page_detail' and request.resolver_match.kwargs.slug == page.slug %}active{% endif %}">{{ page.title }}</a></li>
+                    {% endfor %}
+                </ul>
+                {% endblock %}
+            </div>
+        </div>
+    </div>
+    <div class="nav-overlay" id="navOverlay"></div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="container messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    {% block content %}{% endblock %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    {% block footer_logo %}
+                    {% if site_logo and site_logo.logo %}
+                    <a href="{% url 'home' %}"><img src="{{ site_logo.logo.url }}" alt="{{ site_name }}" style="max-height:50px; width:auto; margin-bottom:10px;"></a>
+                    {% else %}
+                    <h4>{{ site_name }}</h4>
+                    {% endif %}
+                    {% endblock %}
+                    <p>“উদ্যোক্তা ও ক্রেতাদের সংযুক্ত করার একটি ডিজিটাল প্ল্যাটফর্ম।”</p>
+                    <div class="newsletter">
+                        <h4>Sign up for newsletter</h4>
+                        <p>Get the latest deals and special offers</p>
+                        <form method="POST" action="#">
+                            {% csrf_token %}
+                            <input type="email" placeholder="Your email address" required>
+                            <button type="submit">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+                <div>
+                    <h4>Contact us</h4>
+                    <p><i class="fa fa-phone"></i> {{ site_phone }} <a href="https://wa.me/{{ site_whatsapp }}" target="_blank" style="color:#25D366;"><i class="fa fa-whatsapp"></i> WhatsApp</a></p>
+                    <p>{{ site_address_us }}</p>
+                    <p>Bangladesh office {{ site_address_bd }}</p>
+                </div>
+                <div>
+                    <h4>All types of social media links</h4>
+                    <p>
+                        {% for link in social_links %}
+                        <a href="{{ link.url }}" target="_blank" style="font-size:24px; margin-right:10px;"><i class="{{ link.icon_class }}"></i></a>
+                        {% empty %}
+                        <span style="color:#999; font-size:13px;">No social links added.</span>
+                        {% endfor %}
+                    </p>
+                    <h4 style="margin-top:20px;">Quick Links</h4>
+                    {% for page in footer_pages %}
+                    <p><a href="{% url 'page_detail' page.slug %}">{{ page.title }}</a></p>
+                    {% empty %}
+                    <p><a href="#">টার্ম এন্ড কন্ডিশন</a></p>
+                    <p><a href="#">রিটার্ন এন্ড রিফান্ড পলিসি</a></p>
+                    <p><a href="#">কোম্পানি নীতিমালা</a></p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="bottom-bar">
+            <div class="container flex justify-between align-center">
+                <p>Copyright © 2025-2026 {{ site_name }}. All Rights Reserved.</p>
+                <div class="payment-icons">
+                    <img src="https://cdn-icons-png.flaticon.com/24/196/196578.png" alt="Visa">
+                    <img src="https://cdn-icons-png.flaticon.com/24/196/196566.png" alt="Paypal">
+                    <img src="https://cdn-icons-png.flaticon.com/24/196/196561.png" alt="Discover">
+                    <img src="https://cdn-icons-png.flaticon.com/24/196/196539.png" alt="Mastercard">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="#" style="position:fixed; bottom:20px; right:20px; background:#e74847; color:#fff; width:40px; height:40px; text-align:center; line-height:40px; font-size:20px; z-index:999;"><i class="fa fa-arrow-up"></i></a>
+
+    <!-- Quick View Modal -->
+    <div id="quickViewModal" class="modal-overlay" style="display:none;">
+        <div class="modal-container">
+            <span class="modal-close" id="quickViewClose">&times;</span>
+            <div id="quickViewBody"></div>
+        </div>
+    </div>
+
+    {% load static %}
+    <script src="{% static 'js/cloud-zoom.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+    <script>
+        // Tab switching
+        function switchTab(btn) {
+            document.querySelectorAll('.tab-nav button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            document.getElementById(btn.dataset.tab).classList.add('active');
+        }
+        document.querySelectorAll('.tab-nav button').forEach(btn => {
+            btn.addEventListener('click', function() { switchTab(this); });
+            btn.addEventListener('mouseenter', function() { switchTab(this); });
+        });
+        // Slider
+        let slideIndex = 1;
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+            const dots = document.querySelectorAll('.slider-nav span');
+            if (!slides.length) return;
+            if (n > slides.length) slideIndex = 1;
+            if (n < 1) slideIndex = slides.length;
+            slides.forEach(s => s.style.display = 'none');
+            dots.forEach(d => d.classList.remove('active'));
+            slides[slideIndex-1].style.display = 'block';
+            dots[slideIndex-1].classList.add('active');
+        }
+        function nextSlide() { showSlide(slideIndex += 1); }
+        function prevSlide() { showSlide(slideIndex -= 1); }
+        function currentSlide(n) { showSlide(slideIndex = n); }
+        showSlide(1);
+        setInterval(nextSlide, 4000);
+        // Mobile nav toggle
+        const navToggle = document.getElementById('navToggle');
+        const navMenu = document.getElementById('navMenu');
+        const navOverlay = document.getElementById('navOverlay');
+        if (navToggle && navMenu && navOverlay) {
+            navToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                navMenu.classList.toggle('active');
+                navOverlay.classList.toggle('active');
+            });
+            navOverlay.addEventListener('click', function() {
+                navMenu.classList.remove('active');
+                navOverlay.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-menu a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    navMenu.classList.remove('active');
+                    navOverlay.classList.remove('active');
+                });
+            });
+        }
+    </script>
+</body>
+</html>

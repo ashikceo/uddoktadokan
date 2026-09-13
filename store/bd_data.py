@@ -660,9 +660,9 @@ def lookup_division(district_key):
 
 
 def generate_slug(upazila, district):
-    upazila_clean = upazila.replace(',', '').replace('.', '').replace("'", '').replace(' ', '-').strip()
-    district_clean = district.replace(',', '').replace('.', '').replace("'", '').replace(' ', '-').strip()
-    return f'{upazila_clean}-Upazila-{district_clean}'
+    from .models import generate_partner_slug
+    raw = f'{upazila}-Upazila-{district}' if district else upazila
+    return generate_partner_slug(raw)
 
 
 def generate_description(upazila, district):

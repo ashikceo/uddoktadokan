@@ -1,118 +1,405 @@
-(function($) {
-    "use strict";
+jQuery(document).ready(function() {
+"use strict";
 
-    $(document).ready(function() {
 
-        // NivoSlider
-        if ($('#mainSlider').length) {
-            $('#mainSlider').nivoSlider({
-                effect: 'random',
-                slices: 15,
-                boxCols: 8,
-                boxRows: 4,
-                animSpeed: 500,
-                pauseTime: 4000,
-                directionNav: true,
-                controlNav: true,
-                controlNavThumbs: false,
-                pauseOnHover: true,
-                manualAdvance: false,
-                prevText: '<',
-                nextText: '>',
-                randomStart: false,
-            });
-        }
+/******************************************
+   Newsletter popup
+******************************************/
 
-        // Best Sale FlexSlider
-        $('#best-sale-slider').flexslider({
-            animation: "slide",
-            animationLoop: true,
-            itemWidth: 250,
-            itemMargin: 0,
-            minItems: 1,
-            maxItems: 1,
-            controlNav: false,
-            directionNav: false,
-            slideshow: true,
-            slideshowSpeed: 3000,
-        });
+    jQuery('#myModal').appendTo("body");
+          function show_modal(){
+            jQuery('#myModal').modal('show');
+          }
 
-        // FlexSlider for product sliders
-        $('.product-flexslider').flexslider({
-            animation: "slide",
-            animationLoop: true,
-            itemWidth: 250,
-            itemMargin: 0,
-            minItems: 1,
-            maxItems: 1,
-            controlNav: false,
-            directionNav: false,
-            slideshow: true,
-            slideshowSpeed: 3000,
-        });
+            jQuery('#myModal').modal({
+            keyboard: false,
+           backdrop:false
+          });      
 
-        // Mean Menu (mobile)
-        if ($('.mobile-menu nav').length) {
-            $('.mobile-menu nav').meanmenu({
-                meanScreenWidth: 991,
-                meanMenuContainer: '.mobile-menu',
-                meanMenuClose: '<span>X</span>',
-                meanMenuCloseSize: '18px',
-            });
-        }
+/******************************************
+ jQuery MeanMenu
+******************************************/
 
-        // Owl Carousel for clients
-        if ($('#our-clients-slider .slider-items').length) {
-            $('#our-clients-slider .slider-items').owlCarousel({
-                items: 6,
-                itemsDesktop: [1199, 5],
-                itemsDesktopSmall: [991, 4],
-                itemsTablet: [768, 3],
-                itemsMobile: [479, 2],
-                navigation: false,
-                pagination: false,
-                slideSpeed: 1000,
-                autoPlay: 3000,
-            });
-        }
+	jQuery('.mobile-menu nav').meanmenu({
+		meanScreenWidth: "1200",
+		meanMenuContainer: ".mobile-menu",
+	});
 
-        // WOW animations
-        if (typeof WOW !== 'undefined') {
-            new WOW().init();
-        }
+/******************************************
+ main slider
+******************************************/
+	jQuery('#mainSlider').nivoSlider({
+		directionNav: true,
+		animSpeed: 500,
+		slices: 18,
+		pauseTime: 5000,
+		pauseOnHover: false,
+		controlNav: false,
+		prevText: '<i class="fa fa-angle-left nivo-prev-icon"></i>',
+		nextText: '<i class="fa fa-angle-right nivo-next-icon"></i>'
+	});		
 
-        // Back to top
-        $('#back-to-top').on('click', function(e) {
-            e.preventDefault();
-            $('html, body').animate({ scrollTop: 0 }, 500);
-        });
+/******************************************
+ wow js active
+******************************************/
+	new WOW().init();
+	
 
-        // Login modal toggle
-        $('[data-toggle="modal"]').on('click', function(e) {
-            e.preventDefault();
-            var target = $(this).data('target');
-            $(target).addClass('show');
-        });
-        $('.modal .close, .modal').on('click', function(e) {
-            if ($(e.target).hasClass('modal') || $(e.target).hasClass('close') || $(e.target).closest('.close').length) {
-                $('.modal').removeClass('show');
+/******************************************
+   All slider
+******************************************/
+
+jQuery("#all-slider .slider-items").owlCarousel({
+		items: 3,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [980, 2],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: false
+	}),
+
+/******************************************
+   womem slider
+******************************************/
+
+jQuery("#women-slider .slider-items").owlCarousel({
+		items: 3,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [980, 2],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: false
+	}),
+
+/******************************************
+   Men slider
+******************************************/
+
+jQuery("#men-slider .slider-items").owlCarousel({
+		items: 3,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [980, 2],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: false
+	}),
+/******************************************
+   Kids slider
+******************************************/
+
+jQuery("#kids-slider .slider-items").owlCarousel({
+		items: 3,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [980, 2],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: false
+	}),			
+/******************************************
+   Best selling slider
+******************************************/
+
+jQuery("#best-selling-slider .slider-items").owlCarousel({
+		items: 3,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [980, 2],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: false
+	}),
+
+/******************************************
+	Featured products slider
+******************************************/
+
+jQuery("#featured-products-slider .slider-items").owlCarousel({
+		items: 4,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [980, 2],
+		itemsTablet: [480, 3],
+		itemsMobile: [340, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: false
+	}),
+		
+/******************************************
+   Best sale  slider
+******************************************/	
+jQuery("#best-sale-slider .slider-items").owlCarousel({
+	items: 1,
+		itemsDesktop: [1024, 1],
+		itemsDesktopSmall: [900, 1],
+		itemsTablet: [640, 1],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: false,
+		autoPlay: true,
+		singleItem: true,
+        transitionStyle: "goDown"
+	}),
+
+/******************************************
+	testimonials slider
+******************************************/
+
+	jQuery("#testimonials-slider .slider-items").owlCarousel({
+		items: 1,
+		itemsDesktop: [1024, 1],
+		itemsDesktopSmall: [900, 1],
+		itemsTablet: [640, 1],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: false,
+		autoPlay: true,
+		singleItem: true,
+        transitionStyle: "backSlide"
+	}),
+/******************************************
+	Our clients slider
+******************************************/
+
+	jQuery("#our-clients-slider .slider-items").owlCarousel({
+		items: 4,
+		itemsDesktop: [1024, 4],
+		itemsDesktopSmall: [900, 3],
+		itemsTablet: [640, 2],
+		itemsMobile: [360, 1],
+		navigation: false,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: false,
+		autoPlay: true
+	}),
+
+/******************************************
+	Latest news slider
+******************************************/
+
+	jQuery("#latest-news-slider .slider-items").owlCarousel({
+		autoplay: !0,
+		items: 3,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [980, 2],
+		itemsTablet: [640, 2],
+		itemsMobile: [360, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1
+	}),
+
+
+/******************************************
+   Upsell product slider
+******************************************/
+
+jQuery("#upsell-product-slider .slider-items").owlCarousel({
+		items: 4,
+		itemsDesktop: [1024, 4],
+		itemsDesktopSmall: [900, 3],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: false
+	}),
+
+/******************************************
+	Related product slider
+******************************************/
+
+	jQuery("#related-product-slider .slider-items").owlCarousel({
+		items: 4,
+		itemsDesktop: [1024, 4],
+		itemsDesktopSmall: [900, 3],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: true
+	}),
+
+/******************************************
+	Related posts
+******************************************/
+
+	jQuery("#related-posts .slider-items").owlCarousel({
+		items: 3,
+		itemsDesktop: [1024, 3],
+		itemsDesktopSmall: [900, 3],
+		itemsTablet: [640, 2],
+		itemsMobile: [390, 1],
+		navigation: !0,
+		navigationText: ['<a class="flex-prev"></a>', '<a class="flex-next"></a>'],
+		slideSpeed: 500,
+		pagination: !1,
+		autoPlay: true
+	}),
+
+
+
+
+
+/******************************************
+	subDropdown
+******************************************/
+
+	jQuery(".subDropdown")[0] && jQuery(".subDropdown").on("click", function() {
+		jQuery(this).toggleClass("plus"), jQuery(this).toggleClass("minus"), jQuery(this).parent().find("ul").slideToggle()
+	})
+
+
+/******************************************
+    PRICE FILTER
+******************************************/
+
+jQuery('.slider-range-price').each(function() {
+	var min = jQuery(this).data('min');
+	var max = jQuery(this).data('max');
+	var unit = jQuery(this).data('unit');
+	var value_min = jQuery(this).data('value-min');
+	var value_max = jQuery(this).data('value-max');
+	var label_reasult = jQuery(this).data('label-reasult');
+	var t = jQuery(this);
+	jQuery(this).slider({
+		range: true,
+		min: min,
+		max: max,
+		values: [value_min, value_max],
+		slide: function(event, ui) {
+			var result = label_reasult + " " + unit + ui.values[0] + ' - ' + unit + ui.values[1];
+			console.log(t);
+			t.closest('.slider-range').find('.amount-range-price').html(result);
+		}
+	});
+})
+
+/******************************************
+    Footer expander
+******************************************/
+
+jQuery(".collapsed-block .expander").on("click", function(e) {
+	var collapse_content_selector = jQuery(this).attr("href");
+	var expander = jQuery(this);
+	if (!jQuery(collapse_content_selector).hasClass("open")) expander.addClass("open").html("&minus;");
+	else expander.removeClass("open").html("+");
+	if (!jQuery(collapse_content_selector).hasClass("open")) jQuery(collapse_content_selector).addClass("open").slideDown("normal");
+	else jQuery(collapse_content_selector).removeClass("open").slideUp("normal");
+	e.preventDefault()
+});
+
+/******************************************
+    Category sidebar
+******************************************/
+
+jQuery(function() {
+	jQuery(".category-sidebar ul > li.cat-item.cat-parent > ul").hide();
+	jQuery(".category-sidebar ul > li.cat-item.cat-parent.current-cat-parent > ul").show();
+	jQuery(".category-sidebar ul > li.cat-item.cat-parent.current-cat.cat-parent > ul").show();
+	jQuery(".category-sidebar ul > li.cat-item.cat-parent").on("click", function() {
+		if (jQuery(this).hasClass('current-cat-parent')) {
+			var li = jQuery(this).closest('li');
+			li.find(' > ul').slideToggle('fast');
+			jQuery(this).toggleClass("close-cat");
+		} else {
+			var li = jQuery(this).closest('li');
+			li.find(' > ul').slideToggle('fast');
+			jQuery(this).toggleClass("cat-item.cat-parent open-cat");
+		}
+	});
+	jQuery(".category-sidebar ul.children li.cat-item,ul.children li.cat-item > a").on("click", function(e) {
+		e.stopPropagation();
+	});
+});
+
+/******************************************
+    colosebut
+******************************************/
+
+jQuery("#colosebut1").on("click", function() {
+	jQuery("#div1").fadeOut("slow");
+});
+jQuery("#colosebut2").on("click", function() {
+	jQuery("#div2").fadeOut("slow");
+});
+jQuery("#colosebut3").on("click", function() {
+	jQuery("#div3").fadeOut("slow");
+});
+jQuery("#colosebut4").on("click", function() {
+	jQuery("#div4").fadeOut("slow");
+});
+
+
+
+/******************************************
+Stick menu
+******************************************/
+
+jQuery(window).scroll(function() {
+        jQuery(this).scrollTop() > 100 ? jQuery(".menu-area").addClass("stick") : jQuery(".menu-area").removeClass("stick")
+    }),
+
+
+/******************************************
+    tooltip
+******************************************/
+
+
+jQuery('[data-toggle="tooltip"]').tooltip();})
+
+ /******************************************
+    totop
+    ******************************************/
+   if (jQuery('#back-to-top').length) {
+    var scrollTrigger = 100, // px
+        backToTop = function () {
+            var scrollTop = jQuery(window).scrollTop();
+            if (scrollTop > scrollTrigger) {
+                jQuery('#back-to-top').addClass('show');
+            } else {
+                jQuery('#back-to-top').removeClass('show');
             }
-        });
-
-        // Product hover image swap
-        $('.product-image-photo').each(function() {
-            var origSrc = $(this).attr('src');
-            var hoverSrc = $(this).data('hover-src');
-            if (!hoverSrc) return;
-            $(this).closest('.product-item').on('mouseenter', function() {
-                $(this).find('.product-image-photo').attr('src', hoverSrc);
-            }).on('mouseleave', function() {
-                $(this).find('.product-image-photo').attr('src', origSrc);
-            });
-        });
-
-        // Auto-dismiss alerts
-        $('.alert').delay(5000).fadeOut(500);
+        };
+    backToTop();
+    jQuery(window).on('scroll', function () {
+        backToTop();
     });
+    jQuery('#back-to-top').on('click', function (e) {
+        e.preventDefault();
+        jQuery('html,body').animate({
+            scrollTop: 0
+        }, 700);
+    });
+}
 
-})(jQuery);

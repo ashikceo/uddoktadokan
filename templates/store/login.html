@@ -1,33 +1,39 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Login - Uddoktar Dokan{% endblock %}
+{% block title %}Login - {{ site_name }}{% endblock %}
 
 {% block content %}
-<div class="container page-content">
-    <div class="auth-form">
-        <h1>Login</h1>
-        <form method="POST">
+<div class="main-container col2-left-layout">
+  <div class="container">
+    <div class="page-title"><h2>Login</h2></div>
+    <div class="row">
+      <div class="col-md-6 col-sm-8 col-xs-12" style="margin:0 auto; float:none;">
+        <div style="background:#fff; border:1px solid #eee; padding:30px; border-radius:6px;">
+          <form method="POST">
             {% csrf_token %}
             {% if form.errors %}
-            <div class="alert alert-error">Invalid username or password.</div>
+            <div style="background:#fff3cd; border:1px solid #ffc107; padding:10px; border-radius:4px; margin-bottom:15px; color:#856404;">Invalid username or password.</div>
             {% endif %}
             <div class="form-group">
-                <label>Username or email address</label>
-                <input type="text" name="username" class="form-control" required>
+              <label>Username or email address</label>
+              <input type="text" name="username" class="form-control" required>
             </div>
             <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="password" class="form-control" required>
+              <label>Password</label>
+              <input type="password" name="password" class="form-control" required>
             </div>
-            <div style="text-align:right;margin-bottom:12px;">
-                <a href="{% url 'password_reset' %}" style="color:#e74847;font-size:13px;">Forgot password?</a>
+            <div style="text-align:right; margin-bottom:12px;">
+              <a href="{% url 'password_reset' %}" style="color:#e74847; font-size:13px;">Forgot password?</a>
             </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;">Login</button>
-        </form>
-        <p style="text-align:center; margin-top:15px;">
+            <button type="submit" style="width:100%; padding:10px; background:#e74847; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:15px;">Login</button>
+          </form>
+          <p style="text-align:center; margin-top:15px;">
             Don't have an account? <a href="{% url 'register' %}" style="color:#e74847;">Register here</a>
-        </p>
+          </p>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
