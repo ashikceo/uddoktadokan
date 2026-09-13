@@ -19,7 +19,8 @@
 
 	/* Sanity: clip any accidental horizontal overflow on phones */
 	html, body { overflow-x: hidden; }
-	body { padding-bottom: 58px; }
+	body { padding-bottom: 58px; padding-top: 106px; transition: padding-top 0.25s ease; }
+	body.mh-scrolled { padding-top: 48px; }
 
 	.container { padding-left: 12px; padding-right: 12px; }
 
@@ -28,13 +29,16 @@
 	   -------------------------------------------------------- */
 	.mobile-header {
 		display: block;
-		position: sticky;
+		position: fixed;
 		top: 0;
+		left: 0;
+		right: 0;
 		z-index: 1200;
 		background: linear-gradient(135deg, #8a2be2, #6a1fb0);
 		box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
 	}
-	.mh-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+	.mh-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; max-height: 60px; overflow: hidden; opacity: 1; transition: max-height 0.25s ease, opacity 0.25s ease, padding 0.25s ease; }
+	body.mh-scrolled .mh-top { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; pointer-events: none; }
 	.mh-btn {
 		background: rgba(255, 255, 255, .16);
 		border: none;
@@ -52,6 +56,7 @@
 		flex: 0 0 auto;
 	}
 	.mh-logo { flex: 1; min-width: 0; text-align: center; }
+	.mh-logo { background: #fff; border-radius: 8px; padding: 4px 10px; }
 	.mh-logo a { display: inline-block; }
 	.mh-logo img { max-height: 34px; width: auto; }
 	.mh-badge {
@@ -424,5 +429,17 @@
 		cursor: pointer;
 	}
 	.mobile-logout-btn i { font-size: 16px; }
+
+	/* --------------------------------------------------------
+	   11) PROMO CARDS — compact on mobile
+	   -------------------------------------------------------- */
+	.promo-section { padding: 20px 0 !important; }
+	.promo-grid { gap: 10px !important; grid-template-columns: repeat(2, 1fr) !important; }
+	.promo-card { padding: 14px 10px !important; }
+	.promo-card::before { height: 3px !important; }
+	.promo-card .promo-ripple { display: none !important; }
+	.promo-icon { width: 44px !important; height: 44px !important; font-size: 18px !important; margin-bottom: 8px !important; }
+	.promo-title { font-size: 14px !important; margin-bottom: 3px !important; }
+	.promo-desc { font-size: 12px !important; }
 
 }

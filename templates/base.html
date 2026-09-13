@@ -790,6 +790,16 @@
         if (inp) { setTimeout(function () { inp.focus(); }, 250); }
       });
     }
+
+    // Sticky search: hide the logo row after a small scroll, keep search on top
+    if (document.querySelector('.mobile-header')) {
+      var db = document.body;
+      function onScroll() {
+        db.classList.toggle('mh-scrolled', window.scrollY > 60);
+      }
+      onScroll();
+      window.addEventListener('scroll', onScroll, { passive: true });
+    }
   })();
 </script>
 </body>
